@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# FastAPI static uploads
+app/static/*
+!app/static/.gitkeep
+
+# Alembic
+app/db/migrations/__pycache__/
+app/db/migrations/*.pyc
+
+# Data & datasets
+images/
+house_plans_details.csv
+
+# Env files
+.env
+.env.* 
