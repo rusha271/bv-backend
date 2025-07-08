@@ -60,4 +60,29 @@ def verify_google_token(id_token: str) -> Optional[dict]:
             return response.json()
     except Exception:
         pass
-    return None 
+    return None
+
+def verify_facebook_token(token: str) -> Optional[dict]:
+    """Verify Facebook OAuth token"""
+    try:
+        response = requests.get(f"https://graph.facebook.com/me?access_token={token}&fields=id,email,name")
+        if response.status_code == 200:
+            return response.json()
+    except Exception:
+        pass
+    return None
+
+def verify_apple_token(token: str) -> Optional[dict]:
+    """Verify Apple OAuth token - placeholder implementation"""
+    # Apple OAuth verification is more complex and requires proper JWT verification
+    # This is a placeholder - implement according to Apple's documentation
+    return None
+
+def get_current_admin_user(current_user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
+    """Get current admin user"""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user

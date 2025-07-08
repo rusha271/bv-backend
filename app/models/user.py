@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base import Base
@@ -13,6 +13,11 @@ class User(Base):
     oauth_provider = Column(String, nullable=True)
     oauth_id = Column(String, nullable=True)
     role = Column(String, default="user", nullable=False)
+    avatar_url = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    files = relationship("File", back_populates="user") 
+    
+    # Relationships
+    files = relationship("File", back_populates="user")
+    consultations = relationship("Consultation", back_populates="user")

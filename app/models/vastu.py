@@ -1,0 +1,46 @@
+from sqlalchemy import Column, Integer, String, Text, Float, Boolean, DateTime, JSON
+from datetime import datetime
+from app.db.base import Base
+
+class PlanetaryData(Base):
+    __tablename__ = "planetary_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    radius = Column(Float, nullable=False)
+    distance = Column(Float, nullable=False)
+    orbital_period = Column(Float, nullable=False)
+    color = Column(Integer, nullable=False)  # Color as integer
+    description = Column(Text, nullable=False)
+    facts = Column(Text, nullable=False)
+    mean_longitude = Column(Float, nullable=False)
+    daily_motion = Column(Float, nullable=False)
+    eccentricity = Column(Float, nullable=False)
+    inclination = Column(Float, nullable=False)
+    remedy = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class VastuTip(Base):
+    __tablename__ = "vastu_tips"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    details = Column(Text, nullable=False)
+    category = Column(String, nullable=False)
+    image_url = Column(String, nullable=False)
+    is_published = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class VastuCalculation(Base):
+    __tablename__ = "vastu_calculations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    location_data = Column(JSON, nullable=False)  # {"lat": float, "lng": float}
+    calculation_date = Column(DateTime, nullable=False)
+    planetary_positions = Column(JSON, nullable=False)
+    vastu_recommendations = Column(JSON, nullable=False)
+    chakra_alignment = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

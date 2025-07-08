@@ -1,5 +1,20 @@
 from .user import User
 from .file import File
-from .floorplan_analysis import FloorPlanAnalysis
 from .chat import ChatSession
-from .blog import BlogPost 
+from .floorplan_analysis import FloorPlanAnalysis
+from .blog import BlogPost
+from .consultation import Consultation, Consultant
+from .vastu import PlanetaryData, VastuTip, VastuCalculation
+
+__all__ = [
+    "User",
+    "File",
+    "ChatSession",
+    "FloorPlanAnalysis",
+    "BlogPost",
+    "Consultation",
+    "Consultant",
+    "PlanetaryData",
+    "VastuTip",
+    "VastuCalculation",
+]
