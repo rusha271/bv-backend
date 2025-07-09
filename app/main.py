@@ -3,9 +3,8 @@ from fastapi import FastAPI
 from app.core.config import settings
 from app.core.cors import setup_cors
 from app.core.logging import setup_logging
-<<<<<<< Updated upstream
-from app.api import auth, users, files, floorplan, chat, blog, legal, analytics, reload
-=======
+
+from app.api import auth, users, files, floorplan, chat, blog, legal, analytics
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.api.files import router as files_router
@@ -16,7 +15,6 @@ from app.api.legal import router as legal_router
 from app.api.analytics import router as analytics_router
 from app.api.contact import router as contact_router
 from app.api.vastu import router as vastu_router
->>>>>>> Stashed changes
 
 app = FastAPI(
     title="Brahma Vastu Backend API", 
@@ -27,8 +25,12 @@ app = FastAPI(
 setup_logging()
 setup_cors(app)
 
-<<<<<<< Updated upstream
 print(">>> FRONTEND_ORIGINS loaded from .env:", settings.FRONTEND_ORIGINS)
+
+# Add a simple health check endpoint
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "message": "Backend is running"}
 
 # Include routers (to be implemented in api/)
 app.include_router(auth, prefix="/auth", tags=["auth"])
@@ -39,8 +41,6 @@ app.include_router(chat, prefix="/chat", tags=["chat"])
 app.include_router(blog, prefix="/content", tags=["content"])
 app.include_router(legal, prefix="/legal", tags=["legal"])
 app.include_router(analytics, prefix="/analytics", tags=["analytics"])
-app.include_router(reload, tags=["reload"])
-=======
 # Include routers
 app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
 app.include_router(users_router, prefix="/api/users", tags=["users"])
@@ -52,7 +52,7 @@ app.include_router(legal_router, prefix="/api/legal", tags=["legal"])
 app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(contact_router, prefix="/api/contact", tags=["contact"])
 app.include_router(vastu_router, prefix="/api/vastu", tags=["vastu"])
->>>>>>> Stashed changes
+
 
 @app.on_event("startup")
 def on_startup():

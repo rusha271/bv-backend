@@ -6,4 +6,4 @@ from .chat import router as chat
 from .blog import router as blog
 from .legal import router as legal
 from .analytics import router as analytics
-from .reload import router as reload 
+# from .reload import router as reload 

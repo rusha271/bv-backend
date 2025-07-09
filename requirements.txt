@@ -11,5 +11,7 @@ python-multipart
 requests
 httpx
 python-slugify
+ctransformers
+pydantic-settings
 
 

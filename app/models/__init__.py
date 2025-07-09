@@ -4,7 +4,7 @@ from .chat import ChatSession
 from .floorplan_analysis import FloorPlanAnalysis
 from .blog import BlogPost
 from .consultation import Consultation, Consultant
-from .vastu import PlanetaryData, VastuTip, VastuCalculation
+from .vastu import PlanetaryData, VastuTip, VastuCalculation, Book, Video, MediaAsset
 
 __all__ = [
     "User",
@@ -17,4 +17,7 @@ __all__ = [
     "PlanetaryData",
     "VastuTip",
     "VastuCalculation",
+    "Book",
+    "Video",
+    "MediaAsset",
 ]

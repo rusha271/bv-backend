@@ -114,18 +114,75 @@ def delete_chat_session(db: Session, session_id: Optional[str] = None, user_id: 
     return False
 
 def chat_ai_stub(message: str, history: List[dict]) -> str:
-    """Placeholder AI chat function"""
-    # TODO: Implement actual AI logic here
-    # For now, return a simple response based on the message
-    responses = {
-        "hello": "Hello! How can I help you with Vastu today?",
-        "vastu": "Vastu Shastra is an ancient Indian system of architecture and design. How can I assist you?",
-        "help": "I can help you with Vastu principles, floor plan analysis, and recommendations. What would you like to know?"
+    """Enhanced AI chat function with better responses"""
+    try:
+        # Try to use the LLM model from chat API
+        from app.api.chat import load_tinyllama_model
+        
+        model = load_tinyllama_model()
+        if model:
+            # Prepare context from history
+            context = ""
+            for msg in history[-5:]:  # Last 5 messages for context
+                role = msg.get('role', 'user')
+                content = msg.get('content', '')
+                context += f"{role.capitalize()}: {content}\n"
+            
+            # Create a comprehensive prompt for Vastu consultation
+            system_prompt = """You are an expert Vastu Shastra consultant with deep knowledge of ancient Indian architecture principles. 
+            Provide helpful, practical advice about:
+            - Room placement and directions
+            - Energy flow and balance
+            - Color and material recommendations
+            - Remedies for Vastu defects
+            - Modern applications of ancient principles
+            
+            Keep responses concise, practical, and helpful. Always relate advice to specific Vastu principles."""
+            
+            full_prompt = f"{system_prompt}\n\nContext:\n{context}\nUser: {message}\nAssistant:"
+            
+            # Generate response
+            response = model(
+                full_prompt,
+                max_new_tokens=150,
+                temperature=0.7,
+                stop=["User:", "\n\n", "Context:"]
+            )
+            
+            cleaned_response = response.strip()
+            if cleaned_response and len(cleaned_response) > 10:
+                return cleaned_response
+    
+    except Exception as e:
+        print(f"Error in AI chat: {e}")
+    
+    # Enhanced fallback responses
+    message_lower = message.lower()
+    
+    vastu_responses = {
+        "hello": "Hello! I'm your Vastu consultant. How can I help you create a harmonious living space today?",
+        "hi": "Hi there! I'm here to help with Vastu Shastra principles. What would you like to know?",
+        "help": "I can assist you with: \n• Room placement and directions\n• Energy flow optimization\n• Color and material recommendations\n• Vastu remedies\n• Floor plan analysis\n\nWhat specific area interests you?",
+        "kitchen": "For kitchen Vastu: Place your kitchen in the Southeast direction. The cooking stove should face East. Avoid placing it directly opposite the main entrance. Would you like specific tips for your kitchen layout?",
+        "bedroom": "For bedroom Vastu: The master bedroom should be in the Southwest direction. Sleep with your head towards South or East. Avoid mirrors facing the bed. Need more specific bedroom advice?",
+        "entrance": "For entrance Vastu: The main entrance should ideally face North, East, or Northeast. Keep it well-lit and clutter-free. Place a threshold (threshold) at the entrance. What's your current entrance direction?",
+        "toilet": "For toilet Vastu: Place toilets in the Northwest or Southeast corners. Avoid Northeast direction. Keep the door closed and ensure good ventilation. Any specific toilet placement concerns?",
+        "colors": "Vastu colors: Use light, soothing colors. East - light blue/green, South - red/orange, West - white/yellow, North - blue/green. Avoid dark colors in Northeast. Which room are you planning to color?",
+        "direction": "Vastu directions are crucial: North (wealth), East (health), South (fame), West (gains), Northeast (spirituality), Southeast (fire), Southwest (stability), Northwest (air). Which direction concerns you?",
+        "remedies": "Common Vastu remedies: Use mirrors to redirect energy, place plants for positive vibes, use crystals for energy enhancement, ensure proper lighting, and maintain cleanliness. What specific issue needs a remedy?"
     }
     
-    message_lower = message.lower()
-    for key, response in responses.items():
+    # Find matching response
+    for key, response in vastu_responses.items():
         if key in message_lower:
             return response
     
-    return f"Thank you for your message: '{message}'. I'm here to help with Vastu-related questions!"
+    # Check for room-specific queries
+    if any(word in message_lower for word in ['living room', 'hall', 'drawing room']):
+        return "For living room Vastu: Place it in the North or East direction. Keep it clutter-free and well-lit. Use light colors and place the main furniture along the South or West walls. Any specific living room questions?"
+    
+    if any(word in message_lower for word in ['study', 'office', 'work']):
+        return "For study/office Vastu: Face East or North while working. Place the desk in the Southwest corner. Keep the area clutter-free and well-lit. Avoid sitting with your back to the door. Need specific workspace advice?"
+    
+    # Default response with helpful suggestions
+    return f"Thank you for your question: '{message}'. I'm here to help with Vastu principles! You can ask me about:\n• Room placement and directions\n• Energy flow and balance\n• Color recommendations\n• Vastu remedies\n• Specific room layouts\n\nWhat aspect of Vastu interests you most?"

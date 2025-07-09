@@ -10,8 +10,49 @@ from app.services.chat_service import (
     get_user_chat_sessions, delete_chat_session
 )
 import uuid
+import os
+from datetime import datetime
+from pydantic import BaseModel
 
 router = APIRouter()
+
+# TinyLlama model integration
+class ChatRequest(BaseModel):
+    prompt: str
+    max_tokens: Optional[int] = 150
+    temperature: Optional[float] = 0.7
+
+class ChatResponseSimple(BaseModel):
+    response: str
+    model: str = "TinyLlama-1.1B-Chat"
+
+# Global variable to store the model (loaded once)
+llm_model = None
+
+def load_tinyllama_model():
+    """Load TinyLlama model using ctransformers"""
+    global llm_model
+    if llm_model is None:
+        try:
+            from ctransformers import AutoModelForCausalLM
+            model_path = "models/tinyllama"
+            
+            # Check if model file exists
+            if not os.path.exists(model_path):
+                print(f"Warning: Model path {model_path} does not exist")
+                return None
+                
+            llm_model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                model_type="llama",
+                local_files_only=True,
+                context_length=512
+            )
+            print("TinyLlama model loaded successfully")
+        except Exception as e:
+            print(f"Error loading TinyLlama model: {e}")
+            return None
+    return llm_model
 
 def get_db():
     db = SessionLocal()
@@ -19,6 +60,49 @@ def get_db():
         yield db
     finally:
         db.close()
+
+@router.post("/simple", response_model=ChatResponseSimple)
+def simple_chat_endpoint(request: ChatRequest):
+    """Simple chat endpoint using TinyLlama model"""
+    try:
+        # Load model if not already loaded
+        model = load_tinyllama_model()
+        
+        if model is None:
+            # Fallback response if model is not available
+            return ChatResponseSimple(
+                response="I'm sorry, the AI model is currently unavailable. Please try again later.",
+                model="fallback"
+            )
+        
+        # Prepare the prompt for Vastu consultation
+        system_prompt = "You are a helpful Vastu consultant. Provide brief, practical advice about Vastu Shastra principles. Keep responses concise and helpful."
+        full_prompt = f"{system_prompt}\n\nUser: {request.prompt}\nAssistant:"
+        
+        # Generate response using TinyLlama
+        response = model(
+            full_prompt,
+            max_new_tokens=request.max_tokens,
+            temperature=request.temperature,
+            stop=["User:", "\n\n"]
+        )
+        
+        # Clean up the response
+        cleaned_response = response.strip()
+        if not cleaned_response:
+            cleaned_response = "I'm here to help with Vastu questions. Could you please rephrase your question?"
+        
+        return ChatResponseSimple(
+            response=cleaned_response,
+            model="TinyLlama-1.1B-Chat"
+        )
+        
+    except Exception as e:
+        print(f"Error in chat endpoint: {e}")
+        return ChatResponseSimple(
+            response="I'm sorry, I'm having trouble processing your request. Please try again.",
+            model="error"
+        )
 
 @router.post("/", response_model=ChatResponse)
 def chat_endpoint(
@@ -32,9 +116,13 @@ def chat_endpoint(
         response = send_chat_message(db, message, user_id)
         return response
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to send message: {str(e)}"
+        print(f"Chat endpoint error: {e}")
+        # Return a graceful error response instead of raising exception
+        return ChatResponse(
+            response="I'm sorry, I'm experiencing technical difficulties. Please try again in a moment.",
+            session_id=message.session_id or str(uuid.uuid4()),
+            timestamp=datetime.utcnow(),
+            mode="error"
         )
 
 @router.get("/history", response_model=List[dict])

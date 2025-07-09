@@ -42,6 +42,51 @@ def submit_consultation_request(
             detail=f"Failed to create consultation: {str(e)}"
         )
 
+@router.post("/consultation/simple")
+def submit_simple_consultation(
+    consultation_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Submit a simple consultation request without authentication"""
+    try:
+        # Extract required fields
+        name = consultation_data.get("name")
+        email = consultation_data.get("email")
+        phone = consultation_data.get("phone", "")
+        message = consultation_data.get("message")
+        concern_type = consultation_data.get("concernType", "general")
+        
+        # Basic validation
+        if not name or not email or not message:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name, email, and message are required"
+            )
+        
+        # For now, just log the data (you can save to database later)
+        consultation_info = {
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "message": message,
+            "concern_type": concern_type,
+            "status": "received"
+        }
+        
+        print(f"Consultation request received: {consultation_info}")
+        
+        return {
+            "message": "Consultation request submitted successfully",
+            "status": "received",
+            "data": consultation_info
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to submit consultation: {str(e)}"
+        )
+
 @router.get("/consultation/{consultation_id}", response_model=ConsultationRead)
 def get_consultation(
     consultation_id: int,
