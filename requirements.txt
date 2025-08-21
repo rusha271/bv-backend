@@ -4,7 +4,7 @@ python-dotenv
 pydantic[email]
 SQLAlchemy
 alembic
-psycopg2-binary
+pymysql
 passlib[bcrypt]
 python-jose[cryptography]
 python-multipart
@@ -13,5 +13,6 @@ httpx
 python-slugify
 ctransformers
 pydantic-settings
+cryptography
 
 

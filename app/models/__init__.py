@@ -2,11 +2,15 @@ from .user import User
 from .file import File
 from .chat import ChatSession
 from .floorplan_analysis import FloorPlanAnalysis
-from .blog import BlogPost
+from .blog import BlogPost , VastuTip , Video, Book , MediaAsset
 from .consultation import Consultation, Consultant
-from .vastu import PlanetaryData, VastuTip, VastuCalculation, Book, Video, MediaAsset
+from .vastu import PlanetaryData, VastuCalculation
+from .role import Role
+from .page_access import PageAccess
+from app.db.base import Base
 
 __all__ = [
+    "Base",
     "User",
     "File",
     "ChatSession",
@@ -20,4 +24,6 @@ __all__ = [
     "Book",
     "Video",
     "MediaAsset",
+    "Role",
+    "PageAccess",
 ]

@@ -14,7 +14,7 @@ from app.services.consultation_service import (
     create_consultant, get_consultant_by_id, get_all_consultants,
     update_consultant, delete_consultant
 )
-import json
+#   import json
 
 router = APIRouter()
 
@@ -47,46 +47,54 @@ def submit_simple_consultation(
     consultation_data: dict,
     db: Session = Depends(get_db)
 ):
-    """Submit a simple consultation request without authentication"""
     try:
-        # Extract required fields
         name = consultation_data.get("name")
         email = consultation_data.get("email")
         phone = consultation_data.get("phone", "")
         message = consultation_data.get("message")
-        concern_type = consultation_data.get("concernType", "general")
-        
-        # Basic validation
+        concern_type = consultation_data.get("concernType") or consultation_data.get("subject", "general")  # Accept both
+        preferred_date = consultation_data.get("preferred_date")
         if not name or not email or not message:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Name, email, and message are required"
             )
-        
-        # For now, just log the data (you can save to database later)
+
         consultation_info = {
             "name": name,
             "email": email,
             "phone": phone,
             "message": message,
             "concern_type": concern_type,
+            "preferred_date" : preferred_date,
             "status": "received"
         }
-        
-        print(f"Consultation request received: {consultation_info}")
-        
+
+        # Save to database
+        db_consultation = Consultation(
+            name=name,
+            email=email,
+            phone=phone,
+            consultation_type=concern_type,
+            message=message,
+            preferred_date = preferred_date,
+            status="received"
+        )
+        db.add(db_consultation)
+        db.commit()
+        db.refresh(db_consultation)
+
         return {
             "message": "Consultation request submitted successfully",
             "status": "received",
             "data": consultation_info
         }
-        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to submit consultation: {str(e)}"
         )
-
+    
 @router.get("/consultation/{consultation_id}", response_model=ConsultationRead)
 def get_consultation(
     consultation_id: int,

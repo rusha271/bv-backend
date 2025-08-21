@@ -1,6 +1,13 @@
-from pydantic import BaseModel, EmailStr
+from pydantic    import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
+
+class RoleSchema(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -13,23 +20,31 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     is_active: Optional[bool] = None
 
-class UserRead(UserBase):
+class UserRead(BaseModel):
     id: int
+    email: str
+    full_name: Optional[str]
+    phone: Optional[str]
+    avatar_url: Optional[str]
+    is_active: bool
     created_at: datetime
     updated_at: datetime
+    role: RoleSchema  # Ensure role is included as a nested object
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
 
 class TokenPayload(BaseModel):
     sub: Optional[str] = None
@@ -56,9 +71,10 @@ class UserProfile(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    role: RoleSchema
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
@@ -66,3 +82,7 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str

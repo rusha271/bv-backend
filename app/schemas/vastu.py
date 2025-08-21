@@ -49,8 +49,14 @@ class VastuTipBase(BaseModel):
     image_url: str
     is_published: bool = True
 
-class VastuTipCreate(VastuTipBase):
-    pass
+class VastuTipCreate(BaseModel):
+    title: str
+    description: str
+    image_url: str
+    details: Optional[str] = None
+    category: Optional[str] = "general"
+    is_published: bool = True
+    # author_id: Optional[int] = None
 
 class VastuTipUpdate(BaseModel):
     title: Optional[str] = None

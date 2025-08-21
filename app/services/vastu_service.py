@@ -1,6 +1,8 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
-from app.models.vastu import PlanetaryData, VastuTip, VastuCalculation
+from app.models.blog import VastuTip
+from app.models.vastu import PlanetaryData,VastuCalculation
 from app.schemas.vastu import (
     PlanetaryDataCreate, PlanetaryDataUpdate,
     VastuTipCreate, VastuTipUpdate,
@@ -43,8 +45,21 @@ def delete_planetary_data(db: Session, planet_id: int) -> bool:
     db.commit()
     return True
 
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Vastu Tip Services
-def create_vastu_tip(db: Session, tip: VastuTipCreate) -> VastuTip:
+def create_vastu_tip(db: Session, tip: VastuTipCreate, current_user) -> VastuTip:
+    logger.info(f"Received tip data: {tip.dict()}")
+    # Check for required fields (custom validation for debugging)
+    required_fields = {"title", "description", "image_url"}  # Adjust based on schema
+    missing_fields = [field for field in required_fields if not getattr(tip, field, None)]
+    if missing_fields:
+        raise HTTPException(status_code=400, detail=f"Missing required fields: {', '.join(missing_fields)}")
+    
     db_tip = VastuTip(**tip.dict())
     db.add(db_tip)
     db.commit()

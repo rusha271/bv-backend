@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.db.session import SessionLocal
+from app.models.blog import VastuTip
 from app.schemas.vastu import (
     PlanetaryDataCreate, PlanetaryDataRead, PlanetaryDataUpdate,
     VastuTipCreate, VastuTipRead, VastuTipUpdate,
@@ -88,70 +89,6 @@ def delete_planetary_data_endpoint(
             detail="Planetary data not found"
         )
     return {"message": "Planetary data deleted successfully"}
-
-# Vastu Tips endpoints
-@router.post("/tips", response_model=VastuTipRead)
-def create_vastu_tip_endpoint(
-    tip: VastuTipCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
-):
-    """Create Vastu tip (admin only)"""
-    return create_vastu_tip(db, tip)
-
-@router.get("/tips", response_model=List[VastuTipRead])
-def get_vastu_tips(
-    category: Optional[str] = None,
-    published_only: bool = True,
-    db: Session = Depends(get_db)
-):
-    """Get Vastu tips"""
-    return get_all_vastu_tips(db, category, published_only)
-
-@router.get("/tips/{tip_id}", response_model=VastuTipRead)
-def get_vastu_tip(
-    tip_id: int,
-    db: Session = Depends(get_db)
-):
-    """Get specific Vastu tip"""
-    tip = get_vastu_tip_by_id(db, tip_id)
-    if not tip:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Vastu tip not found"
-        )
-    return tip
-
-@router.put("/tips/{tip_id}", response_model=VastuTipRead)
-def update_vastu_tip_endpoint(
-    tip_id: int,
-    tip_update: VastuTipUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
-):
-    """Update Vastu tip (admin only)"""
-    tip = update_vastu_tip(db, tip_id, tip_update)
-    if not tip:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Vastu tip not found"
-        )
-    return tip
-
-@router.delete("/tips/{tip_id}")
-def delete_vastu_tip_endpoint(
-    tip_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
-):
-    """Delete Vastu tip (admin only)"""
-    success = delete_vastu_tip(db, tip_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Vastu tip not found"
-        )
-    return {"message": "Vastu tip deleted successfully"}
 
 # Vastu Calculation endpoints
 @router.post("/calculate", response_model=VastuAnalysisResult)

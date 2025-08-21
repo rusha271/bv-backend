@@ -4,15 +4,15 @@ A scalable, modular, and production-ready FastAPI backend for commercial use, de
 
 ## Features
 - JWT authentication (email/password & social login)
-- Role-based access (user/admin)
-- User profiles
+- Role-based access control with page-wise permissions
+- User profiles with encrypted passwords
 - File uploads (floor plans)
 - Floor plan analysis (background task)
 - Chatbot API
 - Blog/content system (CRUD)
 - Analytics & usage limits
 - Legal endpoints
-- PostgreSQL + Alembic migrations
+- MySQL + Alembic migrations
 - CORS for Next.js frontend
 
 ## Quickstart
@@ -21,13 +21,18 @@ A scalable, modular, and production-ready FastAPI backend for commercial use, de
    ```sh
    pip install -r requirements.txt
    ```
-2. **Configure environment:**
-   - Copy `.env.example` to `.env` and fill in your secrets and DB config.
-3. **Run migrations:**
+2. **Set up MySQL database:**
    ```sh
-   alembic upgrade head
+   python setup_mysql.py
    ```
-4. **Start the server:**
+3. **Configure environment:**
+   - Copy `.env.example` to `.env` and fill in your secrets and DB config.
+   - Set `DATABASE_URL=mysql+pymysql://user:root@localhost/brahmavastu`
+4. **Initialize database with roles:**
+   ```sh
+   python init_database.py
+   ```
+5. **Start the server:**
    ```sh
    uvicorn app.main:app --reload
    ```

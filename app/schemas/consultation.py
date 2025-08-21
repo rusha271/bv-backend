@@ -4,8 +4,8 @@ from datetime import datetime
 
 class ConsultationBase(BaseModel):
     name: str
-    email: EmailStr
-    phone: str
+    email: str
+    phone: Optional[str] = ""
     consultation_type: str
     message: str
     preferred_date: Optional[datetime] = None

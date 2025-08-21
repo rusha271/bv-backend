@@ -1,30 +1,32 @@
 from datetime import datetime, timedelta
-from typing import Optional, Any
+from typing import Optional
 from jose import jwt, JWTError
-from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+from fastapi import status
 from app.core.config import settings
 from app.schemas.user import TokenPayload
-import requests
+from app.db.session import SessionLocal
+from app.models.user import User
+from app.models.role import Role
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
-# Password hashing
-
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-# JWT helpers
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
+    # Fetch user to get ID and role
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == to_encode["sub"]).first()
+        if user:
+            to_encode["sub"] = str(user.id)  # Use user ID as sub
+            if user.role_id:
+                role = db.query(Role).filter(Role.id == user.role_id).first()
+                to_encode["role"] = role.name if role else "user"
+    finally:
+        db.close()
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
 
@@ -35,15 +37,19 @@ def decode_access_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
-# Dependency to get current user from JWT
-
 def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenPayload:
     payload = decode_access_token(token)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     return TokenPayload(**payload)
 
-# Role-based dependency
+def get_current_admin_user(token: str = Depends(oauth2_scheme)) -> TokenPayload:
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if payload.get("role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    return TokenPayload(**payload)
 
 def require_role(role: str):
     def role_checker(user: TokenPayload = Depends(get_current_user)):
@@ -51,38 +57,3 @@ def require_role(role: str):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
         return user
     return role_checker
-
-# OAuth token verification (Google example)
-def verify_google_token(id_token: str) -> Optional[dict]:
-    try:
-        response = requests.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}")
-        if response.status_code == 200:
-            return response.json()
-    except Exception:
-        pass
-    return None
-
-def verify_facebook_token(token: str) -> Optional[dict]:
-    """Verify Facebook OAuth token"""
-    try:
-        response = requests.get(f"https://graph.facebook.com/me?access_token={token}&fields=id,email,name")
-        if response.status_code == 200:
-            return response.json()
-    except Exception:
-        pass
-    return None
-
-def verify_apple_token(token: str) -> Optional[dict]:
-    """Verify Apple OAuth token - placeholder implementation"""
-    # Apple OAuth verification is more complex and requires proper JWT verification
-    # This is a placeholder - implement according to Apple's documentation
-    return None
-
-def get_current_admin_user(current_user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
-    """Get current admin user"""
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    return current_user
