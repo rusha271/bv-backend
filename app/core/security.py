@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials  # Add this import
 from fastapi import status
 from app.core.config import settings
 from app.schemas.user import TokenPayload
@@ -10,13 +10,22 @@ from app.db.session import SessionLocal
 from app.models.user import User
 from app.models.role import Role
 
+# OAuth2 scheme for required authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+# HTTPBearer for optional authentication
+oauth2_scheme_optional = HTTPBearer(auto_error=False)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
-    # Fetch user to get ID and role
+    
+    # If data already contains sub and role, use them directly (for guest users)
+    if "sub" in data and "role" in data:
+        encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        return encoded_jwt
+    
+    # Fetch user to get ID and role (for regular users)
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.email == to_encode["sub"]).first()
@@ -35,6 +44,21 @@ def decode_access_token(token: str) -> Optional[dict]:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         return payload
     except JWTError:
+        return None
+
+def get_current_user_optional(token: Optional[HTTPAuthorizationCredentials] = Depends(oauth2_scheme_optional)) -> Optional[TokenPayload]:
+    """Get current user if token is provided, otherwise return None"""
+    if not token:
+        return None
+    
+    # Extract the token string from HTTPAuthorizationCredentials
+    payload = decode_access_token(token.credentials)
+    if not payload:
+        return None
+    
+    try:
+        return TokenPayload(**payload)
+    except Exception:
         return None
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenPayload:

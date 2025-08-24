@@ -7,6 +7,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from app.middleware.guest_middleware import GuestMiddleware
 
 #from app.api import auth, users, files, floorplan, chat, blog, legal, analytics
 from app.api.auth import router as auth_router
@@ -29,6 +30,11 @@ app = FastAPI(
 )
 
 setup_logging()
+
+# Add guest middleware first
+app.add_middleware(GuestMiddleware)
+
+# Add CORS middleware after guest middleware
 setup_cors(app)
 
 print(">>> FRONTEND_ORIGINS loaded from .env:", settings.FRONTEND_ORIGINS)
@@ -85,8 +91,15 @@ def on_shutdown():
 @app.middleware("http")
 async def log_requests(request, call_next):
     print(">>> Request:", request.method, request.url)
+    print(">>> Origin:", request.headers.get("origin"))
+    print(">>> User-Agent:", request.headers.get("user-agent"))
+    
     response = await call_next(request)
     print(">>> Response status:", response.status_code)
+    print(">>> CORS headers in response:")
+    for header, value in response.headers.items():
+        if "access-control" in header.lower():
+            print(f"  {header}: {value}")
     return response
 
 if __name__ == "__main__":

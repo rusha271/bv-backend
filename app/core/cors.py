@@ -10,6 +10,7 @@ def setup_cors(app):
         allowed_origins.append(settings.FRONTEND_URL.strip().rstrip("/"))
 
     print(">>> CORS Allowed Origins:", allowed_origins)  # Add for debug
+    print(">>> CORS setup complete")
     
     app.add_middleware(
         CORSMiddleware,

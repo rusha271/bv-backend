@@ -86,3 +86,8 @@ class PasswordResetConfirm(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+class GuestMigrationRequest(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str

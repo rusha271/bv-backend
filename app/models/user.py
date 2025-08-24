@@ -22,7 +22,8 @@ class User(Base):
     role_ref = relationship("Role", back_populates="users")
     files = relationship("File", back_populates="user")
     consultations = relationship("Consultation", back_populates="user")
-    
+    floorplan_analyses = relationship("FloorPlanAnalysis", back_populates="user")  # Added
+
     @property
     def role(self):
         """Property to map role_ref to role for Pydantic compatibility"""

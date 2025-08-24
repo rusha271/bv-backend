@@ -6,8 +6,9 @@ from app.core.hashing import verify_password
 from app.db.session import SessionLocal
 from app.schemas.user import UserCreate, UserRead, Token, UserProfile, PasswordResetRequest, PasswordResetConfirm,LoginRequest
 from app.models.user import User
-from app.core.security import create_access_token, get_current_user
+from app.core.security import create_access_token, get_current_user, get_current_user_optional
 from app.services.user_service import get_user_by_email, create_user
+from app.services.guest_service import guest_service
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Dict, Any, Optional
 import requests
@@ -36,6 +37,7 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserRead
+    is_guest: Optional[bool] = False
 
 @router.post("/login", response_model=LoginResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
@@ -142,10 +144,74 @@ def check_auth(current_user=Depends(get_current_user)):
         "role": current_user.role
     }
 
-@router.get("/check-auth")
-def check_auth(current_user=Depends(get_current_user)):
-    """Check if user is authenticated and return basic info"""
+@router.post("/guest/create", response_model=LoginResponse)
+def create_guest_account(db: Session = Depends(get_db)):
+    """Create a new guest account and return session"""
+    try:
+        # Create guest user
+        guest_user = guest_service.create_guest_user(db)
+        
+        # Create session for guest
+        session_data = guest_service.create_guest_session(db, guest_user)
+        
+        return session_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create guest account: {str(e)}")
+
+@router.post("/guest/migrate", response_model=LoginResponse)
+def migrate_guest_to_user(
+    user_data: UserCreate,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Migrate a guest account to a regular user account"""
+    try:
+        # Get current user from database
+        user = db.query(User).options(joinedload(User.role_ref)).filter(User.id == int(current_user.sub)).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if current user is a guest
+        if not guest_service.is_guest_user(user):
+            raise HTTPException(status_code=400, detail="Only guest users can migrate to regular accounts")
+        
+        # Check if email is already taken
+        existing_user = get_user_by_email(db, user_data.email)
+        if existing_user and existing_user.id != user.id:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # Migrate guest to user
+        migrated_user = guest_service.migrate_guest_to_user(db, user, user_data)
+        
+        # Create new session for migrated user
+        access_token_expires = timedelta(minutes=60)
+        access_token = create_access_token(
+            data={"sub": str(migrated_user.id), "role": migrated_user.role_ref.name},
+            expires_delta=access_token_expires
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": migrated_user,
+            "is_guest": False
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to migrate guest account: {str(e)}")
+
+@router.get("/guest/check")
+def check_guest_status(current_user=Depends(get_current_user_optional), db: Session = Depends(get_db)):
+    """Check if current user is a guest user"""
+    if not current_user:
+        return {"is_guest": False, "authenticated": False}
+    
+    user = db.query(User).filter(User.id == int(current_user.sub)).first()
+    if not user:
+        return {"is_guest": False, "authenticated": False}
+    
+    is_guest = guest_service.is_guest_user(user)
     return {
+        "is_guest": is_guest,
         "authenticated": True,
         "user_id": current_user.sub,
         "role": current_user.role
