@@ -1,14 +1,15 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, JSON, LargeBinary
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from sqlalchemy.dialects.mysql import LONGBLOB
 from app.db.base import Base
 
 class FloorPlanAnalysis(Base):
     __tablename__ = "floorplan_analyses"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    image_data = Column(LargeBinary, nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
+    image_data = Column(LONGBLOB, nullable=False)
     original_image_url = Column(String(500), nullable=True)
     cropped_image_url = Column(String(500))
     analysis_result = Column(JSON)
