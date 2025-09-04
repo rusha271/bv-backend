@@ -130,38 +130,48 @@ async def create_book(
     return book
 
 @router.post("/tips", response_model=Dict[str, Any], dependencies=[Depends(require_role("admin"))])
-def create_tip(
-    tip: Dict[str, Any],
+async def create_tip(
+    title: str = Form(...),
+    content: str = Form(...),
+    category: str = Form("general"),
+    image: UploadFile = FastAPIFile(...),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """Create a new tip (VastuTip)"""
-    title = tip.get("title")
-    content = tip.get("content")
-    category = tip.get("category")
-    image = tip.get("image")
-    if not all([title, content, image]):
-        raise HTTPException(status_code=400, detail="Missing required fields")
+
+    # Save uploaded image to disk
+    upload_dir = "app/static/tips"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    file_ext = os.path.splitext(image.filename)[1] or ".jpg"
+    file_name = f"{uuid.uuid4()}{file_ext}"
+    file_path = os.path.join(upload_dir, file_name)
+
+    with open(file_path, "wb") as f:
+        f.write(await image.read())
+
+    # Only save the relative path in DB (not bytes, not base64)
     new_tip = VastuTip(
-        title=tip.title,
-        description=tip.content,
-        details=tip.content,
-        category=tip.category or "general",
-        image_url=str(tip.image),
+        title=title,
+        description=content,
+        details=content,
+        category=category or "general",
+        image_url=f"/static/tips/{file_name}",
         is_published=True,
-        # author_id=int(current_user.sub)  # enable this if author tracking is required
     )
     db.add(new_tip)
     db.commit()
     db.refresh(new_tip)
+
     return {
         "id": new_tip.id,
         "title": new_tip.title,
         "content": new_tip.description,
         "category": new_tip.category,
-        "image": new_tip.image_url,
+        "image": new_tip.image_url,  # safe string path
     }
-
+    
 @router.get("/videos",response_model=List[VideoRead])
 def read_videos(db: Session = Depends(get_db), request: Request = None):
     """Get all published videos with rate limiting"""
