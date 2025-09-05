@@ -1,5 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile, Form, status, Request
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.blog import BlogPost , VastuTip, Book, Video, MediaAsset
@@ -81,20 +82,20 @@ def get_db():
 #     return {"ok": True}
 
 @router.get("/books",response_model=List[BookRead])
-def list_blog_posts(db: Session = Depends(get_db)):
-    return db.query(Book).filter(Book.published == True).all()
+def list_books(db: Session = Depends(get_db)):
+    return db.query(Book).filter(Book.is_published == True).all()
 
 
-@router.post("/books", response_model=BookCreate)
+@router.post("/books", response_model=BookRead)
 async def create_book(
     title: str = Form(...),
     author: str = Form(...),
     summary: str = Form(...),
     pdf: UploadFile = FastAPIFile(...),
-    rating: float = Form(None),
-    pages: int = Form(None),
-    price: float = Form(None),
-    publication_year: int = Form(None),
+    rating: str = Form(None),
+    pages: str = Form(None),
+    price: str = Form(None),
+    publication_year: str = Form(None),
     publisher: str = Form(None),
     category: str = Form(None),
     isbn: str = Form(None),
@@ -102,25 +103,32 @@ async def create_book(
 ):
     """Create a new book with PDF upload"""
     # Save PDF file
-    upload_dir = "app/static/books"
+    upload_dir = "app/static/media/books"
     os.makedirs(upload_dir, exist_ok=True)
     file_ext = os.path.splitext(pdf.filename)[1]
     file_name = f"{uuid.uuid4()}{file_ext}"
     file_path = os.path.join(upload_dir, file_name)
     with open(file_path, "wb") as f:
         f.write(await pdf.read())
+    
+    # Convert string values to appropriate types
+    rating_float = float(rating) if rating else 0.0
+    pages_int = int(pages) if pages else None
+    price_float = float(price) if price else None
+    publication_year_int = int(publication_year) if publication_year else None
+    
     # Create Book record
     book = Book(
         title=title,
         author=author,
         summary=summary,
         isbn=isbn,
-        image_url=f"/static/books/{file_name}",
-        rating=rating or 0.0,
-        pages=pages,
-        publication_year=publication_year,
+        image_url=f"/static/media/books/{file_name}",
+        rating=rating_float,
+        pages=pages_int,
+        publication_year=publication_year_int,
         publisher=publisher,
-        price=price,
+        price=price_float,
         is_available=True,
         is_published=True
     )
@@ -183,6 +191,12 @@ def read_videos(db: Session = Depends(get_db), request: Request = None):
         print(f"Video request from IP: {client_ip}, User-Agent: {user_agent[:50]}... at {datetime.utcnow()}")
     
     videos = db.query(Video).filter(Video.is_published == True).all()
+    
+    # Ensure URLs are populated for each video
+    for video in videos:
+        if not video.url:
+            video.url = video.get_video_url(db)
+    
     print(f"Returning {len(videos)} videos")
     return videos
 
@@ -192,7 +206,7 @@ async def create_video(
     description: str = Form(...),
     video: UploadFile = FastAPIFile(...),
     thumbnail: UploadFile = FastAPIFile(...),
-    category: Optional[str] = Form(None),
+    category: str = Form(None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -218,7 +232,7 @@ async def create_video(
         raise HTTPException(status_code=400, detail="Thumbnail file size exceeds 5MB")
 
     # --------- Save thumbnail ---------
-    thumbnail_dir = "app/static/thumbnails"
+    thumbnail_dir = "app/static/media/thumbnails"
     os.makedirs(thumbnail_dir, exist_ok=True)
 
     thumbnail_ext = os.path.splitext(thumbnail.filename)[1] or mimetypes.guess_extension(thumbnail.content_type) or ".png"
@@ -231,14 +245,35 @@ async def create_video(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save thumbnail: {str(e)}")
 
+    # --------- Save video file to media directory ---------
+    video_ext = os.path.splitext(video.filename)[1] or mimetypes.guess_extension(video.content_type) or ".mp4"
+    video_name = f"{uuid.uuid4()}{video_ext}"
+    
+    video_dir = "app/static/media/videos"
+    os.makedirs(video_dir, exist_ok=True)
+    video_path = os.path.join(video_dir, video_name)
+    with open(video_path, "wb") as f:
+        f.write(video_data)
+
+    # --------- Get video duration ---------
+    duration = None
+    try:
+        from app.utils.helpers import get_video_duration
+        duration = get_video_duration(video_path)
+    except Exception as e:
+        print(f"Could not get video duration: {str(e)}")
+        duration = "00:00"
+
     # --------- Create Video entry ---------
     try:
         new_video = Video(
             title=title,
             description=description,
+            url=f"/static/media/videos/{video_name}",
             category=category,
-            thumbnail_url=f"/static/thumbnails/{thumbnail_name}",
+            thumbnail_url=f"/static/media/thumbnails/{thumbnail_name}",
             video_type="blob",
+            duration=duration,
             is_published=True,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -250,16 +285,16 @@ async def create_video(
     except Exception as e:
         if os.path.exists(thumbnail_path):
             os.remove(thumbnail_path)
+        if os.path.exists(video_path):
+            os.remove(video_path)
         raise HTTPException(status_code=500, detail=f"Failed to save video: {str(e)}")
 
     # --------- Save video as MediaAsset ---------
     try:
-        video_ext = os.path.splitext(video.filename)[1] or mimetypes.guess_extension(video.content_type) or ".mp4"
-        video_name = f"{uuid.uuid4()}{video_ext}"
-
         media_asset = MediaAsset(
             filename=video_name,
             original_name=video.filename,
+            file_path=video_path,
             file_size=len(video_data),
             mime_type=video.content_type,
             asset_type="video",
@@ -276,6 +311,8 @@ async def create_video(
         db.commit()
         if os.path.exists(thumbnail_path):
             os.remove(thumbnail_path)
+        if os.path.exists(video_path):
+            os.remove(video_path)
         raise HTTPException(status_code=500, detail=f"Failed to save asset: {str(e)}")
 
     return new_video
@@ -342,3 +379,62 @@ def delete_vastu_tip_endpoint(
             detail="Vastu tip not found"
         )
     return {"message": "Vastu tip deleted successfully"}
+
+# Video serving endpoints
+@router.get("/videos/serve/{filename}")
+def serve_video(filename: str):
+    """
+    Serve video files from the media directory
+    """
+    video_dir = "app/static/media/videos"
+    file_path = os.path.join(video_dir, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Video file not found")
+    
+    # Determine content type based on file extension
+    ext = os.path.splitext(filename)[1].lower()
+    content_types = {
+        '.mp4': 'video/mp4',
+        '.avi': 'video/x-msvideo',
+        '.mov': 'video/quicktime',
+        '.wmv': 'video/x-ms-wmv',
+        '.flv': 'video/x-flv',
+        '.webm': 'video/webm',
+        '.mkv': 'video/x-matroska'
+    }
+    content_type = content_types.get(ext, 'video/mp4')
+    
+    # Read and return the video file
+    with open(file_path, "rb") as f:
+        content = f.read()
+    
+    return Response(content, media_type=content_type)
+
+@router.get("/videos/thumbnails/{filename}")
+def serve_video_thumbnail(filename: str):
+    """
+    Serve video thumbnails from the media directory
+    """
+    thumbnail_dir = "app/static/media/thumbnails"
+    file_path = os.path.join(thumbnail_dir, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+    
+    # Determine content type based on file extension
+    ext = os.path.splitext(filename)[1].lower()
+    content_types = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    }
+    content_type = content_types.get(ext, 'image/jpeg')
+    
+    # Read and return the thumbnail file
+    with open(file_path, "rb") as f:
+        content = f.read()
+    
+    return Response(content, media_type=content_type)

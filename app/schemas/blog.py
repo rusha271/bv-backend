@@ -49,6 +49,7 @@ class BookRead(BookBase):
 class VideoBase(BaseModel):
     title: str
     description: str
+    url: Optional[str] = None
     category: Optional[str] = None
     video_type: str = "blob"
     thumbnail_url: Optional[str] = None

@@ -52,6 +52,7 @@ class Video(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
+    url = Column(String(500), nullable=True)
     video_type = Column(String(50), default="blob")
     thumbnail_url = Column(String(500), nullable=True)
     duration = Column(String(20), nullable=True)
@@ -60,6 +61,27 @@ class Video(Base):
     is_published = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def get_video_url(self, db_session=None):
+        """Get the actual video URL, either from url field or MediaAsset"""
+        if self.url:
+            return self.url
+        
+        # If no URL is set, try to find the actual filename from MediaAsset
+        if db_session:
+            try:
+                media_asset = db_session.query(MediaAsset).filter(
+                    MediaAsset.content_id == self.id,
+                    MediaAsset.asset_type == "video"
+                ).first()
+                
+                if media_asset and media_asset.filename:
+                    return f"/static/media/videos/{media_asset.filename}"
+            except Exception:
+                pass
+        
+        # Fallback
+        return f"/static/media/videos/video_{self.id}.mp4"
     
 class MediaAsset(Base):
     __tablename__ = "media_assets"

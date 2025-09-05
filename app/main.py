@@ -1,5 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.cors import setup_cors
 from app.core.logging import setup_logging
@@ -36,6 +37,9 @@ app.add_middleware(GuestMiddleware)
 
 # Add CORS middleware after guest middleware
 setup_cors(app)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 print(">>> FRONTEND_ORIGINS loaded from .env:", settings.FRONTEND_ORIGINS)
 
