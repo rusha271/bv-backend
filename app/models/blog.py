@@ -98,3 +98,16 @@ class MediaAsset(Base):
     file_data = Column(LargeBinary, nullable=True)  # Added for blob storage
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class VideoViewSession(Base):
+    __tablename__ = "video_view_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String(255), nullable=False)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
+    viewed_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Unique constraint to prevent duplicate views
+    __table_args__ = (
+        {'extend_existing': True}
+    )

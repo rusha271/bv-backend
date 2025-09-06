@@ -190,15 +190,51 @@ def read_videos(db: Session = Depends(get_db), request: Request = None):
         check_rate_limit(client_ip)
         print(f"Video request from IP: {client_ip}, User-Agent: {user_agent[:50]}... at {datetime.utcnow()}")
     
-    videos = db.query(Video).filter(Video.is_published == True).all()
-    
-    # Ensure URLs are populated for each video
-    for video in videos:
-        if not video.url:
-            video.url = video.get_video_url(db)
-    
-    print(f"Returning {len(videos)} videos")
-    return videos
+    try:
+        # Query videos with explicit field selection to avoid any column issues
+        videos = db.query(
+            Video.id,
+            Video.title,
+            Video.description,
+            Video.url,
+            Video.video_type,
+            Video.thumbnail_url,
+            Video.duration,
+            Video.views,
+            Video.category,
+            Video.is_published,
+            Video.created_at,
+            Video.updated_at
+        ).filter(Video.is_published == True).all()
+        
+        # Convert to Video objects for consistency
+        video_objects = []
+        for video_data in videos:
+            video_obj = Video()
+            video_obj.id = video_data.id
+            video_obj.title = video_data.title
+            video_obj.description = video_data.description
+            video_obj.url = video_data.url
+            video_obj.video_type = video_data.video_type
+            video_obj.thumbnail_url = video_data.thumbnail_url
+            video_obj.duration = video_data.duration
+            video_obj.views = video_data.views
+            video_obj.category = video_data.category
+            video_obj.is_published = video_data.is_published
+            video_obj.created_at = video_data.created_at
+            video_obj.updated_at = video_data.updated_at
+            
+            # Ensure URL is populated
+            if not video_obj.url:
+                video_obj.url = video_obj.get_video_url(db)
+            
+            video_objects.append(video_obj)
+        
+        print(f"Returning {len(video_objects)} videos")
+        return video_objects
+    except Exception as e:
+        print(f"Error in read_videos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving videos: {str(e)}")
 
 @router.post("/videos", response_model=VideoRead)
 async def create_video(

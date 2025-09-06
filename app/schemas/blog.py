@@ -139,3 +139,20 @@ class BlogPostRead(BlogPostBase):
 
     class Config:
         orm_mode = True
+
+
+# ---------------------- VIDEO VIEW TRACKING ----------------------
+class VideoViewTrackRequest(BaseModel):
+    videoId: int
+    watchTime: float
+    duration: float
+    percentage: float
+    timestamp: int
+    sessionId: str
+    userAgent: Optional[str] = None
+    referrer: Optional[str] = None
+
+class VideoViewTrackResponse(BaseModel):
+    success: bool
+    message: str
+    viewCount: int
