@@ -22,6 +22,7 @@ from app.api.analytics import router as analytics_router
 from app.api.contact import router as contact_router
 from app.api.vastu import router as vastu_router
 from app.api.roles import router as roles_router
+from app.api.site_settings import router as site_settings_router
 # from app.api.videos import router as videos_router
 
 app = FastAPI(
@@ -40,6 +41,7 @@ setup_cors(app)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 print(">>> FRONTEND_ORIGINS loaded from .env:", settings.FRONTEND_ORIGINS)
 
@@ -60,6 +62,7 @@ app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"]
 app.include_router(contact_router, prefix="/api/contact", tags=["contact"])
 app.include_router(vastu_router, prefix="/api/vastu", tags=["vastu"])
 app.include_router(roles_router, prefix="/api/roles", tags=["roles"])
+app.include_router(site_settings_router, tags=["site-settings"])
 # app.include_router(videos_router, prefix="/api/videos", tags=["videos"])
 
 @app.exception_handler(StarletteHTTPException)
