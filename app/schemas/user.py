@@ -26,7 +26,9 @@ class Token(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
     full_name: Optional[str] = None
+    name: Optional[str] = None  # Alias for full_name for frontend compatibility
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     is_active: Optional[bool] = None

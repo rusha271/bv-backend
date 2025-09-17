@@ -1,12 +1,15 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.core.hashing import verify_password
 from app.db.session import SessionLocal
 from app.schemas.user import UserCreate, UserRead, Token, UserProfile, PasswordResetRequest, PasswordResetConfirm,LoginRequest
 from app.models.user import User
-from app.core.security import create_access_token, get_current_user, get_current_user_optional
+from app.core.security import (
+    create_access_token, get_current_user, get_current_user_optional,
+    rate_limit_dependency, validate_input, security_validation_dependency
+)
 from app.services.user_service import get_user_by_email, create_user
 from app.services.guest_service import guest_service
 from fastapi.security import OAuth2PasswordRequestForm
@@ -40,9 +43,19 @@ class LoginResponse(BaseModel):
     is_guest: Optional[bool] = False
 
 @router.post("/login", response_model=LoginResponse)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    print(f"Login attempt for email: {request.email}")
-    user = db.query(User).options(joinedload(User.role_ref)).filter(User.email == request.email).first()
+def login(
+    request: LoginRequest, 
+    http_request: Request,
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("auth")),
+    __: bool = Depends(security_validation_dependency())
+):
+    # Validate input data
+    email = validate_input(request.email, 'email', 'email')
+    password = validate_input(request.password, 'safe_text', 'password')
+    
+    print(f"Login attempt for email: {email}")
+    user = db.query(User).options(joinedload(User.role_ref)).filter(User.email == email).first()
     if not user:
         print("User not found")
         raise HTTPException(

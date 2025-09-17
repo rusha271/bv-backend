@@ -22,6 +22,20 @@ class PlanetaryData(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ChakraPoint(Base):
+    __tablename__ = "chakra_points"
+    
+    id = Column(String(50), primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    direction = Column(String(20), nullable=False)
+    description = Column(Text, nullable=False)
+    remedies = Column(Text, nullable=False)
+    is_auspicious = Column(Boolean, default=True)
+    should_avoid = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class VastuCalculation(Base):
     __tablename__ = "vastu_calculations"
     

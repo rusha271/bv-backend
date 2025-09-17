@@ -20,10 +20,14 @@ from app.services.vastu_service import create_vastu_tip, delete_vastu_tip, get_a
 
 router = APIRouter()
 
-# Simple rate limiting
+# Simple rate limiting and caching
 request_times = defaultdict(list)
 RATE_LIMIT_WINDOW = 60  # 60 seconds
 RATE_LIMIT_MAX_REQUESTS = 10  # Max 10 requests per minute
+
+# Cache for frequently accessed data
+_cache = {}
+_cache_ttl = 300  # 5 minutes cache TTL
 
 def check_rate_limit(client_ip: str):
     """Simple rate limiting function"""
@@ -40,6 +44,26 @@ def check_rate_limit(client_ip: str):
     
     # Add current request
     request_times[client_ip].append(current_time)
+
+def get_cached_data(key: str, fetch_func, *args, **kwargs):
+    """Simple cache implementation"""
+    current_time = time.time()
+    
+    # Check if data exists in cache and is not expired
+    if key in _cache:
+        data, timestamp = _cache[key]
+        if current_time - timestamp < _cache_ttl:
+            return data
+    
+    # Fetch fresh data
+    data = fetch_func(*args, **kwargs)
+    _cache[key] = (data, current_time)
+    return data
+
+def invalidate_cache(*keys):
+    """Invalidate specific cache keys"""
+    for key in keys:
+        _cache.pop(key, None)
 
 def get_db():
     db = SessionLocal()
@@ -83,7 +107,11 @@ def get_db():
 
 @router.get("/books",response_model=List[BookRead])
 def list_books(db: Session = Depends(get_db)):
-    return db.query(Book).filter(Book.is_published == True).all()
+    """Get all published books with caching"""
+    def fetch_books():
+        return db.query(Book).filter(Book.is_published == True).all()
+    
+    return get_cached_data("books", fetch_books)
 
 
 @router.post("/books", response_model=BookRead)
@@ -182,7 +210,7 @@ async def create_tip(
     
 @router.get("/videos",response_model=List[VideoRead])
 def read_videos(db: Session = Depends(get_db), request: Request = None):
-    """Get all published videos with rate limiting"""
+    """Get all published videos with rate limiting - TOUR FUNCTIONALITY ONLY"""
     # Rate limiting and logging
     if request:
         client_ip = request.client.host
@@ -190,51 +218,57 @@ def read_videos(db: Session = Depends(get_db), request: Request = None):
         check_rate_limit(client_ip)
         print(f"Video request from IP: {client_ip}, User-Agent: {user_agent[:50]}... at {datetime.utcnow()}")
     
-    try:
-        # Query videos with explicit field selection to avoid any column issues
-        videos = db.query(
-            Video.id,
-            Video.title,
-            Video.description,
-            Video.url,
-            Video.video_type,
-            Video.thumbnail_url,
-            Video.duration,
-            Video.views,
-            Video.category,
-            Video.is_published,
-            Video.created_at,
-            Video.updated_at
-        ).filter(Video.is_published == True).all()
-        
-        # Convert to Video objects for consistency
-        video_objects = []
-        for video_data in videos:
-            video_obj = Video()
-            video_obj.id = video_data.id
-            video_obj.title = video_data.title
-            video_obj.description = video_data.description
-            video_obj.url = video_data.url
-            video_obj.video_type = video_data.video_type
-            video_obj.thumbnail_url = video_data.thumbnail_url
-            video_obj.duration = video_data.duration
-            video_obj.views = video_data.views
-            video_obj.category = video_data.category
-            video_obj.is_published = video_data.is_published
-            video_obj.created_at = video_data.created_at
-            video_obj.updated_at = video_data.updated_at
+    def fetch_tour_videos():
+        try:
+            # Query videos with explicit field selection to avoid any column issues
+            videos = db.query(
+                Video.id,
+                Video.title,
+                Video.description,
+                Video.url,
+                Video.video_type,
+                Video.thumbnail_url,
+                Video.duration,
+                Video.views,
+                Video.category,
+                Video.is_published,
+                Video.created_at,
+                Video.updated_at
+            ).filter(
+                Video.is_published == True,
+                Video.category == 'tour'
+            ).all()
             
-            # Ensure URL is populated
-            if not video_obj.url:
-                video_obj.url = video_obj.get_video_url(db)
+            # Convert to Video objects for consistency
+            video_objects = []
+            for video_data in videos:
+                video_obj = Video()
+                video_obj.id = video_data.id
+                video_obj.title = video_data.title
+                video_obj.description = video_data.description
+                video_obj.url = video_data.url
+                video_obj.video_type = video_data.video_type
+                video_obj.thumbnail_url = video_data.thumbnail_url
+                video_obj.duration = video_data.duration
+                video_obj.views = video_data.views
+                video_obj.category = video_data.category
+                video_obj.is_published = video_data.is_published
+                video_obj.created_at = video_data.created_at
+                video_obj.updated_at = video_data.updated_at
+                
+                # Ensure URL is populated
+                if not video_obj.url:
+                    video_obj.url = video_obj.get_video_url(db)
+                
+                video_objects.append(video_obj)
             
-            video_objects.append(video_obj)
-        
-        print(f"Returning {len(video_objects)} videos")
-        return video_objects
-    except Exception as e:
-        print(f"Error in read_videos: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error retrieving videos: {str(e)}")
+            print(f"Returning {len(video_objects)} tour videos only")
+            return video_objects
+        except Exception as e:
+            print(f"Error in read_videos: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving videos: {str(e)}")
+    
+    return get_cached_data("tour_videos", fetch_tour_videos)
 
 @router.post("/videos", response_model=VideoRead)
 async def create_video(
@@ -318,6 +352,9 @@ async def create_video(
         db.add(new_video)
         db.commit()
         db.refresh(new_video)
+        
+        # Invalidate cache when new video is created
+        invalidate_cache("tour_videos")
     except Exception as e:
         if os.path.exists(thumbnail_path):
             os.remove(thumbnail_path)

@@ -7,6 +7,7 @@ from .consultation import Consultation, Consultant
 from .vastu import PlanetaryData, VastuCalculation
 from .role import Role
 from .page_access import PageAccess
+from .site_setting import SiteSetting
 from app.db.base import Base
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "MediaAsset",
     "Role",
     "PageAccess",
+    "SiteSetting",
 ]

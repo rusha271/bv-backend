@@ -2,11 +2,12 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.models.blog import VastuTip
-from app.models.vastu import PlanetaryData,VastuCalculation
+from app.models.vastu import PlanetaryData, VastuCalculation, ChakraPoint
 from app.schemas.vastu import (
     PlanetaryDataCreate, PlanetaryDataUpdate,
     VastuTipCreate, VastuTipUpdate,
-    VastuAnalysisResult, VastuAnalysisRequest
+    VastuAnalysisResult, VastuAnalysisRequest,
+    ChakraPointCreate, ChakraPointUpdate
 )
 
 # Planetary Data Services
@@ -128,3 +129,44 @@ def get_zodiac_data(db: Session) -> Dict[str, Any]:
         "Aries": {"element": "Fire", "compatible": ["Leo", "Sagittarius"]},
         "Taurus": {"element": "Earth", "compatible": ["Virgo", "Capricorn"]}
     }
+
+# ChakraPoint Services
+def create_chakra_point(db: Session, chakra_point: ChakraPointCreate) -> ChakraPoint:
+    # Check if chakra point with this ID already exists
+    existing = db.query(ChakraPoint).filter(ChakraPoint.id == chakra_point.id).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Chakra point with this ID already exists")
+    
+    db_chakra_point = ChakraPoint(**chakra_point.dict())
+    db.add(db_chakra_point)
+    db.commit()
+    db.refresh(db_chakra_point)
+    return db_chakra_point
+
+def get_chakra_point_by_id(db: Session, chakra_id: str) -> Optional[ChakraPoint]:
+    return db.query(ChakraPoint).filter(ChakraPoint.id == chakra_id).first()
+
+def get_all_chakra_points(db: Session) -> List[ChakraPoint]:
+    return db.query(ChakraPoint).all()
+
+def update_chakra_point(db: Session, chakra_id: str, chakra_point_update: ChakraPointUpdate) -> Optional[ChakraPoint]:
+    db_chakra_point = db.query(ChakraPoint).filter(ChakraPoint.id == chakra_id).first()
+    if not db_chakra_point:
+        return None
+
+    update_data = chakra_point_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_chakra_point, field, value)
+
+    db.commit()
+    db.refresh(db_chakra_point)
+    return db_chakra_point
+
+def delete_chakra_point(db: Session, chakra_id: str) -> bool:
+    db_chakra_point = db.query(ChakraPoint).filter(ChakraPoint.id == chakra_id).first()
+    if not db_chakra_point:
+        return False
+
+    db.delete(db_chakra_point)
+    db.commit()
+    return True

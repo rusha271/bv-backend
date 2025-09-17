@@ -39,7 +39,7 @@ class PlanetaryDataRead(PlanetaryDataBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class VastuTipBase(BaseModel):
     title: str
@@ -72,7 +72,7 @@ class VastuTipRead(VastuTipBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class VastuCalculationBase(BaseModel):
     location_data: Dict[str, float]  # {"lat": float, "lng": float}
@@ -89,7 +89,7 @@ class VastuCalculationRead(VastuCalculationBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class VastuAnalysisResult(BaseModel):
     overall_score: float
@@ -103,3 +103,31 @@ class VastuAnalysisRequest(BaseModel):
     location: Dict[str, float]
     date_time: datetime
     floor_plan_data: Optional[Dict[str, Any]] = None
+
+# ChakraPoint Schemas
+class ChakraPointBase(BaseModel):
+    id: str
+    name: str
+    direction: str
+    description: str
+    remedies: str
+    is_auspicious: bool = True
+    should_avoid: bool = False
+
+class ChakraPointCreate(ChakraPointBase):
+    pass
+
+class ChakraPointUpdate(BaseModel):
+    name: Optional[str] = None
+    direction: Optional[str] = None
+    description: Optional[str] = None
+    remedies: Optional[str] = None
+    is_auspicious: Optional[bool] = None
+    should_avoid: Optional[bool] = None
+
+class ChakraPointRead(ChakraPointBase):
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

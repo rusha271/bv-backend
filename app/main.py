@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.middleware.guest_middleware import GuestMiddleware
+from app.core.security import rate_limit_dependency, security_validation_dependency
 
 #from app.api import auth, users, files, floorplan, chat, blog, legal, analytics
 from app.api.auth import router as auth_router
@@ -23,6 +24,7 @@ from app.api.contact import router as contact_router
 from app.api.vastu import router as vastu_router
 from app.api.roles import router as roles_router
 from app.api.site_settings import router as site_settings_router
+from app.api.admin import router as admin_router
 # from app.api.videos import router as videos_router
 
 app = FastAPI(
@@ -41,7 +43,6 @@ setup_cors(app)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 print(">>> FRONTEND_ORIGINS loaded from .env:", settings.FRONTEND_ORIGINS)
 
@@ -62,7 +63,10 @@ app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"]
 app.include_router(contact_router, prefix="/api/contact", tags=["contact"])
 app.include_router(vastu_router, prefix="/api/vastu", tags=["vastu"])
 app.include_router(roles_router, prefix="/api/roles", tags=["roles"])
-app.include_router(site_settings_router, tags=["site-settings"])
+app.include_router(site_settings_router, prefix="/api/site-settings", tags=["site-settings"])
+
+# Include admin router for direct admin access (for frontend compatibility)
+app.include_router(admin_router, prefix="/admin", tags=["admin"])
 # app.include_router(videos_router, prefix="/api/videos", tags=["videos"])
 
 @app.exception_handler(StarletteHTTPException)
@@ -85,10 +89,43 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         headers={"Access-Control-Allow-Origin": origin}
     )
 
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    """Global security middleware for rate limiting and validation"""
+    try:
+        # Apply basic security validation
+        security_validation_dependency()(request)
+        
+        # Apply rate limiting based on endpoint type
+        if request.url.path.startswith("/api/auth/"):
+            rate_limit_dependency("auth")(request)
+        elif request.url.path.startswith("/admin/"):
+            rate_limit_dependency("admin")(request)
+        else:
+            rate_limit_dependency("general")(request)
+            
+    except Exception as e:
+        # If security checks fail, return appropriate error
+        if "429" in str(e):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please wait before making more requests."},
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+        elif "400" in str(e):
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Invalid request format."},
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+    
+    response = await call_next(request)
+    return response
+
 @app.on_event("startup")
 def on_startup():
     import logging
-    logging.info("Starting FastAPI backend...")
+    logging.info("Starting FastAPI backend with enhanced security...")
 
 @app.on_event("shutdown")
 def on_shutdown():

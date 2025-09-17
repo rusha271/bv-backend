@@ -62,11 +62,16 @@ async def track_video_view(
     """
     try:
         # Validate video exists - use a simple query without view_count
-        video = db.query(Video.id, Video.title).filter(Video.id == request.videoId).first()
+        # Only check for tour videos to reduce unnecessary queries
+        video = db.query(Video.id, Video.title).filter(
+            Video.id == request.videoId,
+            Video.category == 'tour',
+            Video.is_published == True
+        ).first()
         if not video:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Video not found"
+                detail="Tour video not found"
             )
         
         # Check if view should be counted based on smart rules
