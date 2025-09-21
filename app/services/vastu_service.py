@@ -147,7 +147,33 @@ def get_chakra_point_by_id(db: Session, chakra_id: str) -> Optional[ChakraPoint]
     return db.query(ChakraPoint).filter(ChakraPoint.id == chakra_id).first()
 
 def get_all_chakra_points(db: Session) -> List[ChakraPoint]:
-    return db.query(ChakraPoint).all()
+    # Define the correct sequence order for chakra points
+    # This matches the order from the frontend coordinate mapping
+    sequence_order = [
+        '0', '1', '2', '3', '4', '5', '6', '7',  # East (E1-E8)
+        '8', '9', '10', '11', '12', '13', '14', '15',  # North (N1-N8)
+        '16', '17', '18', '19', '20', '21', '22', '23',  # South (S1-S8)
+        '24', '25', '26', '27', '28', '29', '30', '31'  # West (W1-W8)
+    ]
+    
+    # Get all chakra points from database
+    all_points = db.query(ChakraPoint).all()
+    
+    # Create a mapping of id to chakra point for quick lookup
+    points_map = {point.id: point for point in all_points}
+    
+    # Return points in the correct sequence order
+    ordered_points = []
+    for point_id in sequence_order:
+        if point_id in points_map:
+            ordered_points.append(points_map[point_id])
+    
+    # Add any points that might not be in the sequence (fallback)
+    for point in all_points:
+        if point.id not in sequence_order:
+            ordered_points.append(point)
+    
+    return ordered_points
 
 def update_chakra_point(db: Session, chakra_id: str, chakra_point_update: ChakraPointUpdate) -> Optional[ChakraPoint]:
     db_chakra_point = db.query(ChakraPoint).filter(ChakraPoint.id == chakra_id).first()

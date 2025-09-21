@@ -2,6 +2,9 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import base64
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FloorPlanUpload(BaseModel):
     image_data: str
