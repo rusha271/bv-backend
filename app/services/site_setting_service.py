@@ -82,6 +82,14 @@ class SiteSettingService:
         """Count site settings by category"""
         return self.db.query(SiteSetting).filter(SiteSetting.category == category).count()
     
+    def get_latest_by_categories(self, categories: List[SiteSettingCategory]) -> Dict[str, Optional[SiteSetting]]:
+        """Get the latest site setting for multiple categories"""
+        result = {}
+        for category in categories:
+            latest = self.get_latest_by_category(category)
+            result[category.value] = latest
+        return result
+    
     def get_site_setting_history(self, category: Optional[SiteSettingCategory] = None) -> List[SiteSetting]:
         """Get site setting history, optionally filtered by category"""
         query = self.db.query(SiteSetting)

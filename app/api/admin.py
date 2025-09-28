@@ -25,19 +25,17 @@ def get_db():
 # ChakraPoint endpoints for admin
 @router.get("/chakra-points", response_model=List[ChakraPointRead])
 def get_all_chakra_points_endpoint(
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    db: Session = Depends(get_db)
 ):
-    """Get all chakra points (admin only)"""
+    """Get all chakra points (public access)"""
     return get_all_chakra_points(db)
 
 @router.get("/chakra-points/{chakra_id}", response_model=ChakraPointRead)
 def get_chakra_point_by_id_endpoint(
     chakra_id: str,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    db: Session = Depends(get_db)
 ):
-    """Get specific chakra point (admin only)"""
+    """Get specific chakra point (public access)"""
     chakra_point = get_chakra_point_by_id(db, chakra_id)
     if not chakra_point:
         raise HTTPException(
@@ -49,10 +47,9 @@ def get_chakra_point_by_id_endpoint(
 @router.post("/chakra-points", response_model=ChakraPointRead, status_code=status.HTTP_201_CREATED)
 def create_chakra_point_endpoint(
     chakra_point: ChakraPointCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    db: Session = Depends(get_db)
 ):
-    """Create new chakra point (admin only)"""
+    """Create new chakra point (public access)"""
     try:
         return create_chakra_point(db, chakra_point)
     except HTTPException as e:
@@ -72,25 +69,36 @@ def create_chakra_point_endpoint(
 def update_chakra_point_endpoint(
     chakra_id: str,
     chakra_point_update: ChakraPointUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    db: Session = Depends(get_db)
 ):
-    """Update existing chakra point (admin only)"""
-    chakra_point = update_chakra_point(db, chakra_id, chakra_point_update)
-    if not chakra_point:
+    """Update existing chakra point (public access)"""
+    try:
+        chakra_point = update_chakra_point(db, chakra_id, chakra_point_update)
+        if not chakra_point:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chakra point not found"
+            )
+        
+        # Return the complete updated chakra point data
+        # The ChakraPointRead schema will automatically include all fields:
+        # id, name, direction, description, remedies, is_auspicious, should_avoid, created_at, updated_at
+        return chakra_point
+        
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Chakra point not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update chakra point: {str(e)}"
         )
-    return chakra_point
 
 @router.delete("/chakra-points/{chakra_id}")
 def delete_chakra_point_endpoint(
     chakra_id: str,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    db: Session = Depends(get_db)
 ):
-    """Delete chakra point (admin only)"""
+    """Delete chakra point (public access)"""
     success = delete_chakra_point(db, chakra_id)
     if not success:
         raise HTTPException(

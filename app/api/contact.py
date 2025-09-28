@@ -7,7 +7,7 @@ from app.schemas.consultation import (
     ConsultantCreate, ConsultantRead, ConsultantUpdate
 )
 from app.models.consultation import Consultation, Consultant
-from app.core.security import get_current_user, get_current_admin_user
+from app.core.security import get_current_user, get_current_admin_user, rate_limit_dependency, security_validation_dependency
 from app.services.consultation_service import (
     create_consultation, get_consultation_by_id, get_user_consultations,
     update_consultation_status, get_all_consultations,
@@ -45,19 +45,45 @@ def submit_consultation_request(
 @router.post("/consultation/simple")
 def submit_simple_consultation(
     consultation_data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("general")),
+    __: bool = Depends(security_validation_dependency())
 ):
     try:
-        name = consultation_data.get("name")
-        email = consultation_data.get("email")
-        phone = consultation_data.get("phone", "")
-        message = consultation_data.get("message")
-        concern_type = consultation_data.get("concernType") or consultation_data.get("subject", "general")  # Accept both
+        # Input validation and sanitization
+        name = consultation_data.get("name", "").strip()
+        email = consultation_data.get("email", "").strip()
+        phone = consultation_data.get("phone", "").strip()
+        message = consultation_data.get("message", "").strip()
+        concern_type = consultation_data.get("concernType") or consultation_data.get("subject", "general")
         preferred_date = consultation_data.get("preferred_date")
+        
+        # Validate required fields
         if not name or not email or not message:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Name, email, and message are required"
+            )
+        
+        # Validate email format
+        import re
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid email format"
+            )
+        
+        # Validate input lengths
+        if len(name) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name too long (max 100 characters)"
+            )
+        if len(message) > 1000:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Message too long (max 1000 characters)"
             )
 
         consultation_info = {

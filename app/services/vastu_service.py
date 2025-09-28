@@ -184,8 +184,14 @@ def update_chakra_point(db: Session, chakra_id: str, chakra_point_update: Chakra
     for field, value in update_data.items():
         setattr(db_chakra_point, field, value)
 
+    # Update the updated_at timestamp
+    from datetime import datetime
+    db_chakra_point.updated_at = datetime.utcnow()
+
     db.commit()
     db.refresh(db_chakra_point)
+    
+    # Ensure we return the complete updated object
     return db_chakra_point
 
 def delete_chakra_point(db: Session, chakra_id: str) -> bool:

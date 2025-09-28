@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from app.db.session import SessionLocal
 from app.models.blog import Video, VideoViewSession
 from app.schemas.blog import VideoViewTrackRequest, VideoViewTrackResponse
+from app.core.security import rate_limit_dependency, security_validation_dependency
 from typing import Dict, Any
 import time
 from collections import defaultdict
@@ -55,7 +56,9 @@ def flush_view_counts_to_db(db: Session):
 @router.post("/video-view", response_model=VideoViewTrackResponse)
 async def track_video_view(
     request: VideoViewTrackRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("general")),
+    __: bool = Depends(security_validation_dependency())
 ):
     """
     Track video view with smart counting rules and deduplication
@@ -63,7 +66,7 @@ async def track_video_view(
     try:
         # Validate video exists - use a simple query without view_count
         # Only check for tour videos to reduce unnecessary queries
-        video = db.query(Video.id, Video.title).filter(
+        video = db.query(Video.id, Video.title).filter( 
             Video.id == request.videoId,
             Video.category == 'tour',
             Video.is_published == True
@@ -135,7 +138,11 @@ async def track_video_view(
         )
 
 @router.get("/video-view/flush-cache")
-async def flush_view_cache(db: Session = Depends(get_db)):
+async def flush_view_cache(
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("general")),
+    __: bool = Depends(security_validation_dependency())
+):
     """
     Manual endpoint to flush view count cache to database
     (useful for testing or manual cache management)

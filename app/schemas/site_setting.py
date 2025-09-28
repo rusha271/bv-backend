@@ -49,3 +49,9 @@ class SiteSettingListResponse(BaseModel):
     data: list[SiteSettingRead]
     total: int
     category: Optional[str] = None
+
+class SiteSettingBulkLatestResponse(BaseModel):
+    success: bool
+    message: str
+    data: Dict[str, Optional[SiteSettingRead]] = Field(..., description="Dictionary with category as key and latest setting as value")
+    file_urls: Dict[str, Optional[str]] = Field(..., description="Dictionary with category as key and file URL as value")

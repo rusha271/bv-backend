@@ -6,7 +6,7 @@ from app.models.site_setting import SiteSetting
 from app.schemas.site_setting import (
     SiteSettingCreate, SiteSettingUpdate, SiteSettingRead, 
     SiteSettingResponse, SiteSettingListResponse, SiteSettingCategory,
-    SiteSettingUpload
+    SiteSettingUpload, SiteSettingBulkLatestResponse
 )
 from app.services.site_setting_service import (
     SiteSettingService, get_category_folder, get_allowed_extensions,
@@ -264,6 +264,42 @@ def get_latest_site_setting_by_category(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve latest site setting: {str(e)}"
+        )
+
+@router.get("/latest-all", response_model=SiteSettingBulkLatestResponse)
+def get_all_latest_site_settings(
+    db: Session = Depends(get_db)
+):
+    """
+    Get the latest site settings for all categories in a single request
+    """
+    try:
+        site_setting_service = SiteSettingService(db)
+        
+        # Get all available categories
+        all_categories = list(SiteSettingCategory)
+        latest_settings = site_setting_service.get_latest_by_categories(all_categories)
+        
+        # Generate file URLs for each category
+        file_urls = {}
+        for category, setting in latest_settings.items():
+            if setting:
+                filename = os.path.basename(setting.file_path)
+                file_urls[category] = get_public_url(setting.category, filename)
+            else:
+                file_urls[category] = None
+        
+        return SiteSettingBulkLatestResponse(
+            success=True,
+            message="Latest site settings retrieved successfully",
+            data=latest_settings,
+            file_urls=file_urls
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve latest site settings: {str(e)}"
         )
 
 @router.put("/{site_setting_id}", response_model=SiteSettingResponse)

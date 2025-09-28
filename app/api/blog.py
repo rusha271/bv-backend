@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.blog import BlogPost , VastuTip, Book, Video, MediaAsset
 from app.schemas.blog import BlogPostCreate, BlogPostUpdate, BlogPostRead, BookRead , VideoRead , BookCreate , VideoCreate
-from app.core.security import get_current_admin_user, get_current_user, require_role
+from app.core.security import get_current_admin_user, get_current_user, require_role, rate_limit_dependency, security_validation_dependency
 from typing import List, Dict, Any, Optional
 import os
 import requests
@@ -106,7 +106,11 @@ def get_db():
 #     return {"ok": True}
 
 @router.get("/books",response_model=List[BookRead])
-def list_books(db: Session = Depends(get_db)):
+def list_books(
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("general")),
+    __: bool = Depends(security_validation_dependency())
+):
     """Get all published books with caching"""
     def fetch_books():
         return db.query(Book).filter(Book.is_published == True).all()
@@ -127,7 +131,8 @@ async def create_book(
     publisher: str = Form(None),
     category: str = Form(None),
     isbn: str = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_admin_user)
 ):
     """Create a new book with PDF upload"""
     # Save PDF file
