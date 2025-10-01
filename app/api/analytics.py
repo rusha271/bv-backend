@@ -137,6 +137,65 @@ async def track_video_view(
             detail=f"Failed to track video view: {str(e)}"
         )
 
+@router.get("/visitors")
+async def get_visitors_analytics(
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("general")),
+    __: bool = Depends(security_validation_dependency())
+):
+    """
+    Get visitor analytics data
+    """
+    try:
+        # Get total unique video view sessions
+        total_sessions = db.query(VideoViewSession).count()
+        
+        # Get unique visitors (distinct session IDs)
+        unique_visitors = db.query(VideoViewSession.session_id).distinct().count()
+        
+        # Get video view statistics
+        video_stats = db.query(
+            VideoViewSession.video_id,
+            VideoViewSession.session_id
+        ).all()
+        
+        # Count views per video
+        video_view_counts = defaultdict(int)
+        for video_id, session_id in video_stats:
+            video_view_counts[video_id] += 1
+        
+        # Get most viewed videos
+        most_viewed = sorted(video_view_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        
+        # Get recent activity (last 24 hours)
+        from datetime import datetime, timedelta
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        
+        recent_sessions = db.query(VideoViewSession).filter(
+            VideoViewSession.created_at >= yesterday
+        ).count()
+        
+        return {
+            "total_sessions": total_sessions,
+            "unique_visitors": unique_visitors,
+            "recent_visitors_24h": recent_sessions,
+            "most_viewed_videos": [
+                {
+                    "video_id": video_id,
+                    "view_count": count
+                }
+                for video_id, count in most_viewed
+            ],
+            "cached_view_counts": dict(view_count_cache),
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get visitor analytics: {str(e)}"
+        )
+
 @router.get("/video-view/flush-cache")
 async def flush_view_cache(
     db: Session = Depends(get_db),

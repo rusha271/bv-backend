@@ -73,38 +73,75 @@ def get_db():
     finally:
         db.close()
 
-# # Blog content endpoints
-# @router.get("/blog", response_model=list[BlogPostRead])
-# def list_blog_posts(db: Session = Depends(get_db)):
-#     return db.query(BlogPost).filter(BlogPost.published == True).all()
+# Blog content endpoints
+@router.get("/", response_model=List[BlogPostRead])
+def get_blog_posts(
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("general")),
+    __: bool = Depends(security_validation_dependency())
+):
+    """Get all published blog posts"""
+    def fetch_blog_posts():
+        return db.query(BlogPost).filter(BlogPost.published == True).all()
+    
+    return get_cached_data("blog_posts", fetch_blog_posts)
 
-# @router.post("/blog", response_model=BlogPostRead, dependencies=[Depends(require_role("admin"))])
-# def create_blog_post(post: BlogPostCreate, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-#     blog = BlogPost(**post.dict(), author_id=int(current_user.sub))
-#     db.add(blog)
-#     db.commit()
-#     db.refresh(blog)
-#     return blog
+@router.post("/", response_model=BlogPostRead, dependencies=[Depends(require_role("admin"))])
+def create_blog_post(
+    post: BlogPostCreate, 
+    current_user=Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Create a new blog post (admin only)"""
+    blog = BlogPost(**post.dict(), author_id=int(current_user.sub))
+    db.add(blog)
+    db.commit()
+    db.refresh(blog)
+    
+    # Invalidate cache when new post is created
+    invalidate_cache("blog_posts")
+    
+    return blog
 
-# @router.put("/blog/{id}", response_model=BlogPostRead, dependencies=[Depends(require_role("admin"))])
-# def update_blog_post(id: int, post: BlogPostUpdate, db: Session = Depends(get_db)):
-#     blog = db.query(BlogPost).filter(BlogPost.id == id).first()
-#     if not blog:
-#         raise HTTPException(status_code=404, detail="Blog post not found")
-#     for field, value in post.dict(exclude_unset=True).items():
-#         setattr(blog, field, value)
-#     db.commit()
-#     db.refresh(blog)
-#     return blog
+@router.put("/{id}", response_model=BlogPostRead, dependencies=[Depends(require_role("admin"))])
+def update_blog_post(
+    id: int, 
+    post: BlogPostUpdate, 
+    db: Session = Depends(get_db)
+):
+    """Update a blog post (admin only)"""
+    blog = db.query(BlogPost).filter(BlogPost.id == id).first()
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    
+    for field, value in post.dict(exclude_unset=True).items():
+        setattr(blog, field, value)
+    
+    db.commit()
+    db.refresh(blog)
+    
+    # Invalidate cache when post is updated
+    invalidate_cache("blog_posts")
+    
+    return blog
 
-# @router.delete("/blog/{id}", dependencies=[Depends(require_role("admin"))])
-# def delete_blog_post(id: int, db: Session = Depends(get_db)):
-#     blog = db.query(BlogPost).filter(BlogPost.id == id).first()
-#     if not blog:
-#         raise HTTPException(status_code=404, detail="Blog post not found")
-#     db.delete(blog)
-#     db.commit()
-#     return {"ok": True}
+@router.delete("/{id}", dependencies=[Depends(require_role("admin"))])
+def delete_blog_post(
+    id: int, 
+    db: Session = Depends(get_db)
+):
+    """Delete a blog post (admin only)"""
+    blog = db.query(BlogPost).filter(BlogPost.id == id).first()
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    
+    db.delete(blog)
+    db.commit()
+    
+    # Invalidate cache when post is deleted
+    invalidate_cache("blog_posts")
+    
+    return {"ok": True}
 
 @router.get("/books",response_model=List[BookRead])
 def list_books(
@@ -689,3 +726,31 @@ def serve_video_thumbnail(filename: str):
         content = f.read()
     
     return Response(content, media_type=content_type)
+
+@router.get("/videos/{video_id}", response_model=VideoRead)
+def get_video_by_id(
+    video_id: int,
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("general")),
+    __: bool = Depends(security_validation_dependency())
+):
+    """Get specific video by ID"""
+    def fetch_video():
+        video = db.query(Video).filter(
+            Video.id == video_id,
+            Video.is_published == True
+        ).first()
+        
+        if not video:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Video with ID {video_id} not found"
+            )
+        
+        # Ensure URL is populated
+        if not video.url:
+            video.url = video.get_video_url(db)
+        
+        return video
+    
+    return get_cached_data(f"video_{video_id}", fetch_video)

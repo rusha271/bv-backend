@@ -19,17 +19,17 @@ class DatabaseConfig:
     def _get_config(self) -> dict:
         """Get database configuration based on environment"""
         
-        # Development configuration (local)
+        # Development configuration (local Docker MySQL)
         if self.environment == "development":
             return {
                 "DATABASE_URL": os.getenv(
                     "DATABASE_URL", 
-                    "mysql+pymysql://root:root@localhost/brahmavastu"
+                    "mysql+pymysql://bvuser:bv_password@mysql:3306/brahmavastu"
                 ),
-                "POOL_SIZE": 5,
-                "MAX_OVERFLOW": 10,
-                "POOL_TIMEOUT": 30,
-                "POOL_RECYCLE": 3600,
+                "POOL_SIZE": int(os.getenv("DB_POOL_SIZE", "5")),
+                "MAX_OVERFLOW": int(os.getenv("DB_MAX_OVERFLOW", "10")),
+                "POOL_TIMEOUT": int(os.getenv("DB_POOL_TIMEOUT", "30")),
+                "POOL_RECYCLE": int(os.getenv("DB_POOL_RECYCLE", "3600")),
                 "ECHO": True,  # Log SQL queries in development
             }
         

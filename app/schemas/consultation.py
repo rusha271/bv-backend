@@ -25,7 +25,7 @@ class ConsultationRead(ConsultationBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ConsultantBase(BaseModel):
     name: str
@@ -58,4 +58,4 @@ class ConsultantRead(ConsultantBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

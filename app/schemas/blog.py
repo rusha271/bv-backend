@@ -149,7 +149,7 @@ class BlogPostRead(BlogPostBase):
     updated_at: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # ---------------------- VIDEO VIEW TRACKING ----------------------

@@ -1,0 +1,162 @@
+# AWS Deployment Configuration
+# This file contains configuration for AWS deployment
+
+# Stack Configuration
+stack:
+  name: "bv-backend-infrastructure"
+  region: "us-east-1"
+  template: "deployment/aws-cloudformation.yaml"
+  parameters: "deployment/aws-parameters.json"
+
+# Instance Configuration
+instance:
+  type: "t3.medium"
+  min_size: 1
+  max_size: 5
+  desired_capacity: 2
+  key_pair: "bv-backend-keypair"
+
+# Database Configuration
+database:
+  engine: "mysql"
+  version: "8.0"
+  instance_class: "db.t3.micro"
+  username: "admin"
+  password: "ChangeMe123!"
+  database_name: "brahmavastu"
+  allocated_storage: 20
+  storage_type: "gp2"
+  backup_retention: 7
+  multi_az: false
+  publicly_accessible: false
+  storage_encrypted: true
+
+# Load Balancer Configuration
+load_balancer:
+  type: "application"
+  scheme: "internet-facing"
+  health_check:
+    path: "/health"
+    protocol: "HTTP"
+    interval: 30
+    timeout: 5
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+
+# Security Groups
+security_groups:
+  web_server:
+    - port: 22
+      protocol: "tcp"
+      source: "0.0.0.0/0"
+      description: "SSH access"
+    - port: 8000
+      protocol: "tcp"
+      source: "0.0.0.0/0"
+      description: "Application access"
+  
+  database:
+    - port: 3306
+      protocol: "tcp"
+      source: "web_server_sg"
+      description: "MySQL access from web server"
+  
+  load_balancer:
+    - port: 80
+      protocol: "tcp"
+      source: "0.0.0.0/0"
+      description: "HTTP access"
+    - port: 443
+      protocol: "tcp"
+      source: "0.0.0.0/0"
+      description: "HTTPS access"
+
+# Auto Scaling Configuration
+auto_scaling:
+  enabled: true
+  target_cpu_utilization: 70
+  scale_up_cooldown: 300
+  scale_down_cooldown: 300
+
+# Monitoring Configuration
+monitoring:
+  cloudwatch:
+    enabled: true
+    log_retention_days: 30
+    metrics:
+      - "CPUUtilization"
+      - "NetworkIn"
+      - "NetworkOut"
+      - "DiskReadOps"
+      - "DiskWriteOps"
+  
+  dashboard:
+    enabled: true
+    name: "BV-Backend-Dashboard"
+    widgets:
+      - type: "metric"
+        title: "Application Load Balancer Metrics"
+        metrics:
+          - "AWS/ApplicationELB/TargetResponseTime"
+          - "AWS/ApplicationELB/RequestCount"
+          - "AWS/ApplicationELB/HTTPCode_Target_2XX_Count"
+          - "AWS/ApplicationELB/HTTPCode_Target_4XX_Count"
+          - "AWS/ApplicationELB/HTTPCode_Target_5XX_Count"
+
+# S3 Configuration
+s3:
+  bucket_name: "bv-backend-files"
+  versioning: true
+  encryption: true
+  public_access_block: true
+
+# Environment Variables
+environment:
+  NODE_ENV: "production"
+  LOG_LEVEL: "INFO"
+  DEBUG: "false"
+  ENABLE_METRICS: "true"
+
+# Deployment Configuration
+deployment:
+  package_name: "bv-backend-deployment.zip"
+  deployment_script: "deploy.sh"
+  application_directory: "/var/www/bv-backend"
+  service_name: "bv-backend"
+  nginx_config: "nginx.conf"
+
+# Health Checks
+health_checks:
+  application:
+    path: "/health"
+    interval: 30
+    timeout: 5
+    retries: 3
+  
+  database:
+    enabled: true
+    interval: 60
+    timeout: 10
+    retries: 3
+
+# Backup Configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 30
+  s3_bucket: "bv-backend-backups"
+
+# SSL Configuration
+ssl:
+  enabled: false
+  certificate_arn: ""
+  domain_name: ""
+
+# Tags
+tags:
+  Project: "Brahma Vastu Backend"
+  Environment: "production"
+  Owner: "Development Team"
+  CostCenter: "IT"
+  Backup: "true"
+  Monitoring: "true"

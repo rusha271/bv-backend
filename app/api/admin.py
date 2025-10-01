@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File as FastAPIFile
 from sqlalchemy.orm import Session
 from typing import List
 from app.db.session import SessionLocal
@@ -12,6 +12,9 @@ from app.services.vastu_service import (
     create_chakra_point, get_all_chakra_points, get_chakra_point_by_id,
     update_chakra_point, delete_chakra_point
 )
+from app.services.floorplan_service import analyze_floorplan_stub
+from fastapi import BackgroundTasks
+from datetime import datetime
 
 router = APIRouter()
 
@@ -161,3 +164,50 @@ def delete_floorplan_analysis(
     db.delete(analysis)
     db.commit()
     return {"message": "Floorplan analysis deleted successfully"}
+
+# Floorplan Analysis endpoint for admin
+@router.post("/floorplan/{analysis_id}/analyze", response_model=FloorPlanAnalysisRead)
+def analyze_floorplan_admin(
+    analysis_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_admin_user)
+):
+    """Analyze floorplan (admin only)"""
+    analysis = db.query(FloorPlanAnalysis).filter(FloorPlanAnalysis.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Floorplan analysis not found"
+        )
+    
+    # Update analysis status to pending and trigger analysis
+    analysis.status = "pending"
+    analysis.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(analysis)
+    
+    # Start background analysis
+    background_tasks.add_task(analyze_floorplan_stub, analysis.id, db)
+    
+    return FloorPlanAnalysisRead.from_orm(analysis)
+
+# Logo/Image management endpoints for admin
+@router.get("/get-image")
+def get_logo_image(
+    current_user = Depends(get_current_admin_user)
+):
+    """Get logo image (admin only)"""
+    # This is a placeholder - you may need to implement actual logo retrieval
+    # based on your site settings or file storage system
+    return {"image_url": "/static/default-logo.png"}
+
+@router.post("/upload-image")
+def upload_logo_image(
+    file: UploadFile = FastAPIFile(...),
+    current_user = Depends(get_current_admin_user)
+):
+    """Upload logo image (admin only)"""
+    # This is a placeholder - you may need to implement actual file upload
+    # and storage logic based on your file handling system
+    return {"image_url": f"/static/uploads/{file.filename}"}

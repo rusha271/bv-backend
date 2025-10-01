@@ -146,7 +146,7 @@ def get_all_chakra_points_public(
     """Get all chakra points (public access) with rate limiting and security"""
     return get_all_chakra_points(db)
 
-@router.get("/admin/chakra-points", response_model=List[ChakraPointRead])
+@router.get("/api/admin/chakra-points", response_model=List[ChakraPointRead])
 def get_all_chakra_points_endpoint(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_admin_user)
@@ -174,7 +174,7 @@ def get_chakra_point_by_id_public(
         )
     return chakra_point
 
-@router.get("/admin/chakra-points/{chakra_id}", response_model=ChakraPointRead)
+@router.get("/api/admin/chakra-points/{chakra_id}", response_model=ChakraPointRead)
 def get_chakra_point_by_id_endpoint(
     chakra_id: str,
     db: Session = Depends(get_db),
@@ -189,7 +189,7 @@ def get_chakra_point_by_id_endpoint(
         )
     return chakra_point
 
-@router.post("/admin/chakra-points", response_model=ChakraPointRead, status_code=status.HTTP_201_CREATED)
+@router.post("/api/admin/chakra-points", response_model=ChakraPointRead, status_code=status.HTTP_201_CREATED)
 def create_chakra_point_endpoint(
     chakra_point: ChakraPointCreate,
     db: Session = Depends(get_db),
@@ -211,7 +211,7 @@ def create_chakra_point_endpoint(
             detail=f"Failed to create chakra point: {str(e)}"
         )
 
-@router.put("/admin/chakra-points/{chakra_id}", response_model=ChakraPointRead)
+@router.put("/api/admin/chakra-points/{chakra_id}", response_model=ChakraPointRead)
 def update_chakra_point_endpoint(
     chakra_id: str,
     chakra_point_update: ChakraPointUpdate,
@@ -227,7 +227,7 @@ def update_chakra_point_endpoint(
         )
     return chakra_point
 
-@router.delete("/admin/chakra-points/{chakra_id}")
+@router.delete("/api/admin/chakra-points/{chakra_id}")
 def delete_chakra_point_endpoint(
     chakra_id: str,
     db: Session = Depends(get_db),

@@ -1,0 +1,82 @@
+{
+  "alarms": [
+    {
+      "AlarmName": "BV-Backend-High-CPU",
+      "AlarmDescription": "Alert when CPU utilization is high",
+      "MetricName": "CPUUtilization",
+      "Namespace": "AWS/EC2",
+      "Statistic": "Average",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 80,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"],
+      "OKActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"]
+    },
+    {
+      "AlarmName": "BV-Backend-High-Memory",
+      "AlarmDescription": "Alert when memory utilization is high",
+      "MetricName": "MemoryUtilization",
+      "Namespace": "CWAgent",
+      "Statistic": "Average",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 85,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"],
+      "OKActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"]
+    },
+    {
+      "AlarmName": "BV-Backend-High-Disk-Usage",
+      "AlarmDescription": "Alert when disk usage is high",
+      "MetricName": "disk_used_percent",
+      "Namespace": "CWAgent",
+      "Statistic": "Average",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 90,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"],
+      "OKActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"]
+    },
+    {
+      "AlarmName": "BV-Backend-Application-Errors",
+      "AlarmDescription": "Alert when application errors are high",
+      "MetricName": "HTTPCode_Target_5XX_Count",
+      "Namespace": "AWS/ApplicationELB",
+      "Statistic": "Sum",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 10,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"],
+      "OKActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"]
+    },
+    {
+      "AlarmName": "BV-Backend-High-Response-Time",
+      "AlarmDescription": "Alert when response time is high",
+      "MetricName": "TargetResponseTime",
+      "Namespace": "AWS/ApplicationELB",
+      "Statistic": "Average",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 5,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"],
+      "OKActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"]
+    },
+    {
+      "AlarmName": "BV-Backend-Database-Connections",
+      "AlarmDescription": "Alert when database connections are high",
+      "MetricName": "DatabaseConnections",
+      "Namespace": "AWS/RDS",
+      "Statistic": "Average",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 80,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"],
+      "OKActions": ["arn:aws:sns:us-east-1:123456789012:bv-backend-alerts"]
+    }
+  ]
+}

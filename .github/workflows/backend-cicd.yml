@@ -1,0 +1,85 @@
+name: Deploy Brahma Vastu Backend to AWS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Copy production environment file
+        run: |
+          cp env.production .env.production
+          echo "✅ Production environment file copied successfully"
+          echo "📋 Environment variables loaded:"
+          echo "- ENVIRONMENT: $(grep ENVIRONMENT .env.production | cut -d'=' -f2)"
+          echo "- DATABASE_URL: $(grep DATABASE_URL .env.production | cut -d'=' -f2 | cut -c1-20)..."
+          echo "- FRONTEND_ORIGINS: $(grep FRONTEND_ORIGINS .env.production | cut -d'=' -f2)"
+
+      - name: Build Docker image
+        run: docker build -t rushabhbackend04/bv_backend:latest -f ./Dockerfile .
+
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      - name: Publish Docker image
+        run: docker push rushabhbackend04/bv_backend:latest
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: Fix Docker permissions
+        run: |
+          sudo chmod 666 /var/run/docker.sock || true
+          sudo chown root:docker /var/run/docker.sock || true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      - name: Pull Docker image
+        run: docker pull rushabhbackend04/bv_backend:latest
+
+      - name: Stop and remove old container
+        run: |
+          docker stop bv-backend-container || true
+          docker rm bv-backend-container || true
+
+      - name: Run Backend Docker container
+        run: |
+          docker run -d \
+            --name bv-backend-container \
+            --restart unless-stopped \
+            -p 8000:8000 \
+            --env-file .env.production \
+            -v /var/log/bv-backend:/app/logs \
+            -v /var/www/bv-backend/uploads:/app/uploads \
+            rushabhbackend04/bv_backend:latest
+
+      - name: Health check
+        run: |
+          sleep 10
+          curl -f http://localhost:8000/health || exit 1
+
+      - name: Notify deployment
+        run: |
+          echo "Backend deployed successfully!"
+          echo "API available at: http://localhost:8000"
+          echo "Frontend domain: https://bharmaspace.com"
+          echo "Health check: http://localhost:8000/health"

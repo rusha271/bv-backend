@@ -42,6 +42,38 @@ def submit_consultation_request(
             detail=f"Failed to create consultation: {str(e)}"
         )
 
+@router.get("/consultation/simple")
+def get_simple_consultation_info(
+    db: Session = Depends(get_db),
+    _: str = Depends(rate_limit_dependency("general")),
+    __: bool = Depends(security_validation_dependency())
+):
+    """Get basic consultation information (no authentication required)"""
+    try:
+        # Return basic consultation form information
+        return {
+            "message": "Consultation service available",
+            "status": "active",
+            "form_fields": {
+                "name": {"required": True, "max_length": 100},
+                "email": {"required": True, "format": "email"},
+                "phone": {"required": False, "max_length": 20},
+                "message": {"required": True, "max_length": 1000},
+                "concernType": {"required": False, "options": ["general", "vastu", "consultation", "other"]},
+                "preferred_date": {"required": False, "format": "YYYY-MM-DD"}
+            },
+            "endpoints": {
+                "submit": "POST /api/contact/consultation/simple",
+                "get_consultation": "GET /api/contact/consultation/{id} (requires auth)",
+                "get_consultations": "GET /api/contact/consultations (requires auth)"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get consultation info: {str(e)}"
+        )
+
 @router.post("/consultation/simple")
 def submit_simple_consultation(
     consultation_data: dict,

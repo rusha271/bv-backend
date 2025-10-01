@@ -66,7 +66,7 @@ app.include_router(roles_router, prefix="/api/roles", tags=["roles"])
 app.include_router(site_settings_router, prefix="/api/site-settings", tags=["site-settings"])
 
 # Include admin router for direct admin access (for frontend compatibility)
-app.include_router(admin_router, prefix="/admin", tags=["admin"])
+app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 # app.include_router(videos_router, prefix="/api/videos", tags=["videos"])
 
 @app.exception_handler(StarletteHTTPException)
@@ -99,7 +99,7 @@ async def security_middleware(request: Request, call_next):
         # Apply rate limiting based on endpoint type
         if request.url.path.startswith("/api/auth/"):
             rate_limit_dependency("auth")(request)
-        elif request.url.path.startswith("/admin/"):
+        elif request.url.path.startswith("/api/admin/"):
             rate_limit_dependency("admin")(request)
         else:
             rate_limit_dependency("general")(request)

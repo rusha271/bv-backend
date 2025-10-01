@@ -35,5 +35,6 @@ images/
 house_plans_details.csv
 
 # Env files
-# .env
-# .env.* 
+.env
+.env.* 
+.env.production
