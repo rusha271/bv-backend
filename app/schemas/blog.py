@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, validator
-from typing import Optional
+from typing import Optional, List
 
 # ---------------------- BOOK ----------------------
 class BookBase(BaseModel):
@@ -8,7 +8,10 @@ class BookBase(BaseModel):
     author: str
     summary: str
     isbn: Optional[str] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = None  # Keep for backward compatibility
+    image_urls: Optional[List[str]] = None  # New field for multiple images
+    pdf_url: Optional[str] = None  # Keep for backward compatibility
+    pdf_urls: Optional[List[str]] = None  # New field for multiple PDFs
     image_alt: Optional[str] = None
     rating: float = 0.0
     pages: Optional[int] = None
@@ -26,7 +29,10 @@ class BookUpdate(BaseModel):
     author: Optional[str] = None
     summary: Optional[str] = None
     isbn: Optional[str] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = None  # Keep for backward compatibility
+    image_urls: Optional[List[str]] = None  # New field for multiple images
+    pdf_url: Optional[str] = None  # Keep for backward compatibility
+    pdf_urls: Optional[List[str]] = None  # New field for multiple PDFs
     image_alt: Optional[str] = None
     rating: Optional[float] = None
     pages: Optional[int] = None
@@ -49,10 +55,12 @@ class BookRead(BookBase):
 class VideoBase(BaseModel):
     title: str
     description: str
-    url: Optional[str] = None
+    url: Optional[str] = None  # Keep for backward compatibility
+    video_urls: Optional[List[str]] = None  # New field for multiple videos
     category: Optional[str] = None
     video_type: str = "blob"
-    thumbnail_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None  # Keep for backward compatibility
+    thumbnail_urls: Optional[List[str]] = None  # New field for multiple thumbnails
     duration: Optional[str] = None
     views: int = 0
     is_published: bool = True
@@ -68,7 +76,10 @@ class VideoUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     video_type: Optional[str] = None
-    thumbnail_url: Optional[str] = None
+    url: Optional[str] = None  # Keep for backward compatibility
+    video_urls: Optional[List[str]] = None  # New field for multiple videos
+    thumbnail_url: Optional[str] = None  # Keep for backward compatibility
+    thumbnail_urls: Optional[List[str]] = None  # New field for multiple thumbnails
     duration: Optional[str] = None
     views: Optional[int] = None
     is_published: Optional[bool] = None

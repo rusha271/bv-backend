@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, Integer, LargeBinary, String, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Float, Integer, LargeBinary, String, Text, ForeignKey, DateTime, Boolean, JSON
 from datetime import datetime
 from app.db.base import Base
 
@@ -20,7 +20,9 @@ class VastuTip(Base):
     description = Column(Text, nullable=False)
     details = Column(Text, nullable=False)
     category = Column(String(100), nullable=False)
-    image_url = Column(String(500), nullable=False)
+    image_url = Column(String(500), nullable=True)  # Keep for backward compatibility
+    image_urls = Column(JSON, nullable=True)  # New field for multiple images
+    descriptions = Column(JSON, nullable=True)  # New field for multiple descriptions
     is_published = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -34,7 +36,10 @@ class Book(Base):
     author = Column(String(255), nullable=False)
     summary = Column(Text, nullable=False)
     isbn = Column(String(20), nullable=True)
-    image_url = Column(String(500), nullable=True)
+    image_url = Column(String(500), nullable=True)  # Keep for backward compatibility
+    image_urls = Column(JSON, nullable=True)  # New field for multiple images
+    pdf_url = Column(String(500), nullable=True)  # Keep for backward compatibility
+    pdf_urls = Column(JSON, nullable=True)  # New field for multiple PDFs
     image_alt = Column(String(255), nullable=True)
     rating = Column(Float, default=0.0)
     pages = Column(Integer, nullable=True)
@@ -52,9 +57,11 @@ class Video(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    url = Column(String(500), nullable=True)
+    url = Column(String(500), nullable=True)  # Keep for backward compatibility
+    video_urls = Column(JSON, nullable=True)  # New field for multiple videos
     video_type = Column(String(50), default="blob")
-    thumbnail_url = Column(String(500), nullable=True)
+    thumbnail_url = Column(String(500), nullable=True)  # Keep for backward compatibility
+    thumbnail_urls = Column(JSON, nullable=True)  # New field for multiple thumbnails
     duration = Column(String(20), nullable=True)
     views = Column(Integer, default=0)
     category = Column(String(100), nullable=True)

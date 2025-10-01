@@ -46,13 +46,17 @@ class VastuTipBase(BaseModel):
     description: str
     details: str
     category: str
-    image_url: str
+    image_url: Optional[str] = None  # Keep for backward compatibility
+    image_urls: Optional[List[str]] = None  # New field for multiple images
+    descriptions: Optional[List[str]] = None  # New field for multiple descriptions
     is_published: bool = True
 
 class VastuTipCreate(BaseModel):
     title: str
     description: str
-    image_url: str
+    image_url: Optional[str] = None  # Keep for backward compatibility
+    image_urls: Optional[List[str]] = None  # New field for multiple images
+    descriptions: Optional[List[str]] = None  # New field for multiple descriptions
     details: Optional[str] = None
     category: Optional[str] = "general"
     is_published: bool = True
@@ -63,7 +67,9 @@ class VastuTipUpdate(BaseModel):
     description: Optional[str] = None
     details: Optional[str] = None
     category: Optional[str] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = None  # Keep for backward compatibility
+    image_urls: Optional[List[str]] = None  # New field for multiple images
+    descriptions: Optional[List[str]] = None  # New field for multiple descriptions
     is_published: Optional[bool] = None
 
 class VastuTipRead(VastuTipBase):
