@@ -62,23 +62,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: bv-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./uploads:/var/www/bv-backend/uploads
-      - ./app/static:/var/www/bv-backend/app/static
-    depends_on:
-      - app
-    networks:
-      - bv-network
   
 volumes:
   mysql_data:
