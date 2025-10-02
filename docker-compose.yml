@@ -10,11 +10,6 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./deployment/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql
-    # Do NOT expose MySQL to the public internet in production.
-    # Either bind to localhost only or don't map ports and use internal network.
-    # To bind to localhost only:
-    # ports:
-    #   - "127.0.0.1:3306:3306"
     networks:
       - bv-network
     healthcheck:
@@ -35,8 +30,6 @@ services:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
       - ./app/static:/app/app/static
-    # If you're using nginx as reverse-proxy on host or separate container, use expose.
-    # If you want to access the app directly on 8000, uncomment ports:
     ports:
       - "8000:8000"
     depends_on:
