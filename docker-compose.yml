@@ -1,56 +1,44 @@
-# Docker Compose configuration for Brahma Vastu Backend
-# This file sets up the complete application stack with database
-
 version: '3.8'
 
 services:
-  # MySQL Database (Local Development)
   mysql:
     image: mysql:8.0
     container_name: bv-mysql
     restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: brahmavastu
-      MYSQL_USER: bvuser
-      MYSQL_PASSWORD: bv_password
-      # MySQL configuration for development
-      MYSQL_INITDB_SKIP_TZINFO: 1
+    env_file:
+      - .env.production
     volumes:
       - mysql_data:/var/lib/mysql
       - ./deployment/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "3306:3306"  # Expose for local development access
+    # Do NOT expose MySQL to the public internet in production.
+    # Either bind to localhost only or don't map ports and use internal network.
+    # To bind to localhost only:
+    # ports:
+    #   - "127.0.0.1:3306:3306"
     networks:
       - bv-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 30s
       timeout: 20s
       retries: 10
       start_period: 30s
     command: --default-authentication-plugin=mysql_native_password
 
-  # FastAPI Application
   app:
     build: .
     container_name: bv-backend
     restart: unless-stopped
-    environment:
-      - ENVIRONMENT=development
-      - DATABASE_URL=mysql+pymysql://bvuser:bv_password@mysql:3306/brahmavastu
-      - JWT_SECRET_KEY=e2a7f5c9b1d6a3f8c4b9e1d7a5c2f6b3a8e4c1f9b7d2c5a3e6f8d4b1c7a9f2e5
-      - JWT_ALGORITHM=HS256
-      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
-      - FRONTEND_ORIGINS=["https://bharmaspace.com","https://www.bharmaspace.com"]
-      - ENCRYPTION_KEY=ENCRYPTION_KEY=4cV9kH6sD2nP1yQ7wT5lJ3xA8oF2zE9rB1vL6mK7pN0
-      - SECRET_KEY=b9d4e7f0a1c2b3d5e6f7a8c9b0d1e2f3a4c5b6d7e8f9a0c1d2e3f4b5c6d7e8f
-      - LOG_LEVEL=DEBUG
+    env_file:
+      - .env.production
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
       - ./app/static:/app/app/static
-    expose:
-      - "8000"
+    # If you're using nginx as reverse-proxy on host or separate container, use expose.
+    # If you want to access the app directly on 8000, uncomment ports:
+    ports:
+      - "8000:8000"
     depends_on:
       mysql:
         condition: service_healthy
@@ -62,11 +50,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-  
+
 volumes:
   mysql_data:
-    driver: local
-  redis_data:
     driver: local
 
 networks:
