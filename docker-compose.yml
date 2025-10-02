@@ -38,12 +38,12 @@ services:
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=mysql+pymysql://bvuser:bv_password@mysql:3306/brahmavastu
-      - JWT_SECRET_KEY=your-development-secret-key-here
+      - JWT_SECRET_KEY=e2a7f5c9b1d6a3f8c4b9e1d7a5c2f6b3a8e4c1f9b7d2c5a3e6f8d4b1c7a9f2e5
       - JWT_ALGORITHM=HS256
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
-      - FRONTEND_ORIGINS=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"]
-      - ENCRYPTION_KEY=your-development-encryption-key-here
-      - SECRET_KEY=your-development-secret-key-here
+      - FRONTEND_ORIGINS=["https://bharmaspace.com","https://www.bharmaspace.com"]
+      - ENCRYPTION_KEY=ENCRYPTION_KEY=4cV9kH6sD2nP1yQ7wT5lJ3xA8oF2zE9rB1vL6mK7pN0
+      - SECRET_KEY=b9d4e7f0a1c2b3d5e6f7a8c9b0d1e2f3a4c5b6d7e8f9a0c1d2e3f4b5c6d7e8f
       - LOG_LEVEL=DEBUG
     volumes:
       - ./uploads:/app/uploads
