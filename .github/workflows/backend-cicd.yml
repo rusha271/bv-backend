@@ -33,10 +33,23 @@ jobs:
         run: docker build -t rushabhbackend04/bv_backend:latest -f ./Dockerfile .
 
       - name: Login to Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+        run: |
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+            echo "✅ Docker Hub login successful"
+          else
+            echo "⚠️ Docker Hub credentials not found. Skipping login and push."
+            echo "Please set DOCKER_USERNAME and DOCKER_PASSWORD secrets in GitHub repository settings."
+          fi
 
       - name: Publish Docker image
-        run: docker push rushabhbackend04/bv_backend:latest
+        run: |
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            docker push rushabhbackend04/bv_backend:latest
+            echo "✅ Docker image pushed successfully"
+          else
+            echo "⚠️ Skipping Docker push - credentials not available"
+          fi
 
   deploy:
     needs: build
@@ -54,7 +67,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+        run: |
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+            echo "✅ Docker Hub login successful"
+          else
+            echo "⚠️ Docker Hub credentials not found. Skipping login."
+            echo "Please set DOCKER_USERNAME and DOCKER_PASSWORD secrets in GitHub repository settings."
+          fi
 
       - name: Copy production environment file
         run: |
@@ -94,7 +114,16 @@ jobs:
           echo "✅ Database initialized successfully!"
 
       - name: Pull Docker image
-        run: docker pull rushabhbackend04/bv_backend:latest
+        run: |
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            docker pull rushabhbackend04/bv_backend:latest
+            echo "✅ Docker image pulled successfully"
+          else
+            echo "⚠️ Skipping Docker pull - using local image or building from source"
+            # Build the image locally if pull fails
+            docker build -t rushabhbackend04/bv_backend:latest -f ./Dockerfile .
+            echo "✅ Docker image built locally"
+          fi
 
       - name: Run database migrations with Alembic
         run: |
