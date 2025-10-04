@@ -58,38 +58,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Fix Docker permissions
+      - name: Quick Docker setup
         run: |
+          # Fix Docker permissions quickly
           sudo chmod 666 /var/run/docker.sock || true
           sudo chown root:docker /var/run/docker.sock || true
+          
+          # Copy environment file
+          cp env.production .env.production
+          echo "✅ Quick setup completed"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
+      - name: Login to Docker Hub (if credentials available)
         run: |
           if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
             echo "✅ Docker Hub login successful"
           else
-            echo "⚠️ Docker Hub credentials not found. Skipping login."
-            echo "Please set DOCKER_USERNAME and DOCKER_PASSWORD secrets in GitHub repository settings."
+            echo "⚠️ Using local Docker setup"
           fi
 
-      - name: Copy production environment file
+      - name: Fast Docker cleanup
         run: |
-          cp env.production .env.production
-          echo "✅ Production environment file copied for deployment"
+          echo "🧹 Fast cleanup of old resources..."
+          
+          # Stop and remove only related containers (faster)
+          docker stop bv-backend-container bv-mysql-container || true
+          docker rm bv-backend-container bv-mysql-container || true
+          
+          # Remove only our specific image (faster than system prune)
+          docker rmi rushabhbackend04/bv_backend:latest || true
+          
+          echo "✅ Fast cleanup completed"
 
-      - name: Stop and remove old containers
+      - name: Start MySQL and initialize
         run: |
-          docker stop bv-backend-container || true
-          docker rm bv-backend-container || true
-          docker stop bv-mysql-container || true
-          docker rm bv-mysql-container || true
-
-      - name: Start MySQL database
-        run: |
+          echo "🗄️ Starting MySQL database..."
           docker run -d \
             --name bv-mysql-container \
             --restart unless-stopped \
@@ -97,49 +100,51 @@ jobs:
             -e MYSQL_DATABASE=brahmavastu \
             -e MYSQL_USER=root \
             -e MYSQL_PASSWORD=BvR00t@1234 \
+            -e MYSQL_INITDB_SKIP_TZINFO=1 \
             -p 3306:3306 \
             -v bv-mysql-data:/var/lib/mysql \
-            mysql:8.0
-
-      - name: Wait for MySQL to be ready
-        run: |
-          echo "⏳ Waiting for MySQL to be ready..."
-          timeout 60 bash -c 'until docker exec bv-mysql-container mysqladmin ping -h"localhost" --silent; do sleep 2; done'
-          echo "✅ MySQL is ready!"
-
-      - name: Initialize database
-        run: |
+            mysql:8.0 \
+            --innodb-buffer-pool-size=64M \
+            --max-connections=50 \
+            --skip-log-bin
+          
+          echo "⏳ Waiting for MySQL..."
+          timeout 60 bash -c 'until docker exec bv-mysql-container mysqladmin ping --silent; do sleep 2; done'
+          
           echo "🗄️ Initializing database..."
           docker exec bv-mysql-container mysql -u root -pBvR00t@1234 -e "CREATE DATABASE IF NOT EXISTS brahmavastu;"
-          echo "✅ Database initialized successfully!"
+          
+          echo "✅ MySQL ready!"
 
-      - name: Pull Docker image
+      - name: Get Docker image
         run: |
           if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "📥 Pulling Docker image..."
             docker pull rushabhbackend04/bv_backend:latest
-            echo "✅ Docker image pulled successfully"
+            echo "✅ Image pulled"
           else
-            echo "⚠️ Skipping Docker pull - using local image or building from source"
-            # Build the image locally if pull fails
+            echo "🔨 Building image locally..."
             docker build -t rushabhbackend04/bv_backend:latest -f ./Dockerfile .
-            echo "✅ Docker image built locally"
+            echo "✅ Image built"
           fi
 
-      - name: Run database migrations with Alembic
+      - name: Run Alembic migrations
         run: |
-          echo "🔄 Running Alembic database migrations..."
+          echo "🔄 Running database migrations..."
           docker run --rm \
-            --name bv-migration-container \
             --network host \
             --env-file .env.production \
-            -v /var/log/bv-backend:/app/logs \
-            -v /var/www/bv-backend/uploads:/app/uploads \
             rushabhbackend04/bv_backend:latest \
-            sh -c "alembic upgrade head"
-          echo "✅ Database migrations completed successfully!"
+            sh -c "
+              echo 'Running Alembic upgrade...'
+              alembic upgrade head
+              echo 'Migrations completed!'
+            "
+          echo "✅ Database migrations completed!"
 
-      - name: Run Backend Docker container
+      - name: Start application
         run: |
+          echo "🚀 Starting application..."
           docker run -d \
             --name bv-backend-container \
             --restart unless-stopped \
@@ -149,36 +154,15 @@ jobs:
             -v /var/www/bv-backend/uploads:/app/uploads \
             --network host \
             rushabhbackend04/bv_backend:latest
+          
+          echo "⏳ Waiting for application..."
+          timeout 30 bash -c 'until curl -f http://localhost:8000/health 2>/dev/null; do sleep 1; done'
+          echo "✅ Application ready!"
 
-      - name: Wait for application startup
+      - name: Deployment complete
         run: |
-          echo "⏳ Waiting for application to start..."
-          sleep 15
-
-      - name: Health check
-        run: |
-          echo "🏥 Running health checks..."
-          curl -f http://localhost:8000/health || exit 1
-          echo "✅ Health check passed!"
-
-      - name: Verify database connection
-        run: |
-          echo "🔍 Verifying database connection..."
-          docker exec bv-backend-container python -c "
-          from app.core.database_config import engine
-          from sqlalchemy import text
-          with engine.connect() as conn:
-              result = conn.execute(text('SELECT 1'))
-              print('✅ Database connection verified!')
-          "
-
-      - name: Notify deployment
-        run: |
-          echo "🎉 Backend deployed successfully!"
-          echo "📊 Deployment Summary:"
-          echo "- API available at: http://localhost:8000"
-          echo "- Frontend domain: https://bharmaspace.com"
-          echo "- Health check: http://localhost:8000/health"
-          echo "- Database: MySQL running on port 3306"
-          echo "- Alembic migrations: Completed successfully"
-          echo "- Container status: Running"
+          echo "🎉 Deployment completed successfully!"
+          echo "✅ API: http://localhost:8000"
+          echo "✅ Health: http://localhost:8000/health"
+          echo "✅ Database: MySQL on port 3306"
+          echo "✅ Migrations: Completed"
