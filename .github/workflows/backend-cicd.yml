@@ -42,6 +42,9 @@ jobs:
     needs: build
     runs-on: self-hosted
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Fix Docker permissions
         run: |
           sudo chmod 666 /var/run/docker.sock || true
@@ -53,13 +56,58 @@ jobs:
       - name: Login to Docker Hub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
-      - name: Pull Docker image
-        run: docker pull rushabhbackend04/bv_backend:latest
+      - name: Copy production environment file
+        run: |
+          cp env.production .env.production
+          echo "✅ Production environment file copied for deployment"
 
-      - name: Stop and remove old container
+      - name: Stop and remove old containers
         run: |
           docker stop bv-backend-container || true
           docker rm bv-backend-container || true
+          docker stop bv-mysql-container || true
+          docker rm bv-mysql-container || true
+
+      - name: Start MySQL database
+        run: |
+          docker run -d \
+            --name bv-mysql-container \
+            --restart unless-stopped \
+            -e MYSQL_ROOT_PASSWORD=BvR00t@1234 \
+            -e MYSQL_DATABASE=brahmavastu \
+            -e MYSQL_USER=root \
+            -e MYSQL_PASSWORD=BvR00t@1234 \
+            -p 3306:3306 \
+            -v bv-mysql-data:/var/lib/mysql \
+            mysql:8.0
+
+      - name: Wait for MySQL to be ready
+        run: |
+          echo "⏳ Waiting for MySQL to be ready..."
+          timeout 60 bash -c 'until docker exec bv-mysql-container mysqladmin ping -h"localhost" --silent; do sleep 2; done'
+          echo "✅ MySQL is ready!"
+
+      - name: Initialize database
+        run: |
+          echo "🗄️ Initializing database..."
+          docker exec bv-mysql-container mysql -u root -pBvR00t@1234 -e "CREATE DATABASE IF NOT EXISTS brahmavastu;"
+          echo "✅ Database initialized successfully!"
+
+      - name: Pull Docker image
+        run: docker pull rushabhbackend04/bv_backend:latest
+
+      - name: Run database migrations with Alembic
+        run: |
+          echo "🔄 Running Alembic database migrations..."
+          docker run --rm \
+            --name bv-migration-container \
+            --network host \
+            --env-file .env.production \
+            -v /var/log/bv-backend:/app/logs \
+            -v /var/www/bv-backend/uploads:/app/uploads \
+            rushabhbackend04/bv_backend:latest \
+            sh -c "alembic upgrade head"
+          echo "✅ Database migrations completed successfully!"
 
       - name: Run Backend Docker container
         run: |
@@ -70,16 +118,38 @@ jobs:
             --env-file .env.production \
             -v /var/log/bv-backend:/app/logs \
             -v /var/www/bv-backend/uploads:/app/uploads \
+            --network host \
             rushabhbackend04/bv_backend:latest
+
+      - name: Wait for application startup
+        run: |
+          echo "⏳ Waiting for application to start..."
+          sleep 15
 
       - name: Health check
         run: |
-          sleep 10
+          echo "🏥 Running health checks..."
           curl -f http://localhost:8000/health || exit 1
+          echo "✅ Health check passed!"
+
+      - name: Verify database connection
+        run: |
+          echo "🔍 Verifying database connection..."
+          docker exec bv-backend-container python -c "
+          from app.core.database_config import engine
+          from sqlalchemy import text
+          with engine.connect() as conn:
+              result = conn.execute(text('SELECT 1'))
+              print('✅ Database connection verified!')
+          "
 
       - name: Notify deployment
         run: |
-          echo "Backend deployed successfully!"
-          echo "API available at: http://localhost:8000"
-          echo "Frontend domain: https://bharmaspace.com"
-          echo "Health check: http://localhost:8000/health"
+          echo "🎉 Backend deployed successfully!"
+          echo "📊 Deployment Summary:"
+          echo "- API available at: http://localhost:8000"
+          echo "- Frontend domain: https://bharmaspace.com"
+          echo "- Health check: http://localhost:8000/health"
+          echo "- Database: MySQL running on port 3306"
+          echo "- Alembic migrations: Completed successfully"
+          echo "- Container status: Running"
