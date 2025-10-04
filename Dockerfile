@@ -2,7 +2,7 @@
 # This Dockerfile creates an optimized production image
 
 # Stage 1: Build stage
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -13,7 +13,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    libmysqlclient-dev \
+    default-libmysqlclient-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
@@ -35,8 +35,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
-    libmysqlclient-dev \
+    default-libmysqlclient-dev \
     pkg-config \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder stage
