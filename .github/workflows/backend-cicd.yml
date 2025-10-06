@@ -1,4 +1,4 @@
-name: Deploy Brahma Vastu Backend to AWS
+name: Brahma Vastu Backend CI
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,166 +20,37 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Copy production environment file
+      - name: Install dependencies
         run: |
-          cp env.production .env.production
-          echo "✅ Production environment file copied successfully"
-          echo "📋 Environment variables loaded:"
-          echo "- ENVIRONMENT: $(grep ENVIRONMENT .env.production | cut -d'=' -f2)"
-          echo "- DATABASE_URL: $(grep DATABASE_URL .env.production | cut -d'=' -f2 | cut -c1-20)..."
-          echo "- FRONTEND_ORIGINS: $(grep FRONTEND_ORIGINS .env.production | cut -d'=' -f2)"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          # Add your test commands here
+          echo "Running tests..."
+          # python -m pytest tests/ -v
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
         run: docker build -t rushabhbackend04/bv_backend:latest -f ./Dockerfile .
 
       - name: Login to Docker Hub
-        run: |
-          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
-            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-            echo "✅ Docker Hub login successful"
-          else
-            echo "⚠️ Docker Hub credentials not found. Skipping login and push."
-            echo "Please set DOCKER_USERNAME and DOCKER_PASSWORD secrets in GitHub repository settings."
-          fi
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Publish Docker image
-        run: |
-          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
-            docker push rushabhbackend04/bv_backend:latest
-            echo "✅ Docker image pushed successfully"
-          else
-            echo "⚠️ Skipping Docker push - credentials not available"
-          fi
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Copy files to EC2
-        run: |
-          # Copy environment file
-          cp env.production .env.production
-          
-          # Copy files to EC2 using the .pem file
-          scp -i bharma_vastu.pem -o StrictHostKeyChecking=no .env.production ubuntu@65.1.107.217:/tmp/
-          scp -i bharma_vastu.pem -o StrictHostKeyChecking=no -r . ubuntu@65.1.107.217:/tmp/bv-backend/
-          
-          echo "✅ Files copied to EC2"
-
-      - name: Login to Docker Hub (if credentials available)
-        run: |
-          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
-            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-            echo "✅ Docker Hub login successful"
-          else
-            echo "⚠️ Using local Docker setup"
-          fi
-
-      - name: Fast Docker cleanup on EC2
-        run: |
-          echo "🧹 Fast cleanup of old resources on EC2..."
-          
-          # SSH into EC2 and clean up Docker resources
-          ssh -i bharma_vastu.pem -o StrictHostKeyChecking=no ubuntu@65.1.107.217 "
-            echo 'Stopping and removing containers...'
-            docker stop bv-backend-container bv-mysql-container || true
-            docker rm bv-backend-container bv-mysql-container || true
-            docker rmi rushabhbackend04/bv_backend:latest || true
-            echo '✅ Fast cleanup completed'
-          "
-
-      - name: Start MySQL and initialize on EC2
-        run: |
-          echo "🗄️ Starting MySQL database on EC2..."
-          ssh -i bharma_vastu.pem -o StrictHostKeyChecking=no ubuntu@65.1.107.217 "
-            echo 'Starting MySQL container...'
-            docker run -d \
-              --name bv-mysql-container \
-              --restart unless-stopped \
-              -e MYSQL_ROOT_PASSWORD=BvR00t@1234 \
-              -e MYSQL_DATABASE=brahmavastu \
-              -e MYSQL_USER=root \
-              -e MYSQL_PASSWORD=BvR00t@1234 \
-              -e MYSQL_INITDB_SKIP_TZINFO=1 \
-              -p 3306:3306 \
-              -v bv-mysql-data:/var/lib/mysql \
-              mysql:8.0 \
-              --innodb-buffer-pool-size=64M \
-              --max-connections=50 \
-              --skip-log-bin
-            
-            echo 'Waiting for MySQL...'
-            timeout 60 bash -c 'until docker exec bv-mysql-container mysqladmin ping --silent; do sleep 2; done'
-            
-            echo 'Initializing database...'
-            docker exec bv-mysql-container mysql -u root -pBvR00t@1234 -e 'CREATE DATABASE IF NOT EXISTS brahmavastu;'
-            
-            echo '✅ MySQL ready!'
-          "
-
-      - name: Get Docker image on EC2
-        run: |
-          echo "📥 Getting Docker image on EC2..."
-          ssh -i bharma_vastu.pem -o StrictHostKeyChecking=no ubuntu@65.1.107.217 "
-            if [ -n '${{ secrets.DOCKER_USERNAME }}' ] && [ -n '${{ secrets.DOCKER_PASSWORD }}' ]; then
-              echo 'Logging into Docker Hub...'
-              echo '${{ secrets.DOCKER_PASSWORD }}' | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-              echo 'Pulling Docker image...'
-              docker pull rushabhbackend04/bv_backend:latest
-              echo '✅ Image pulled'
-            else
-              echo 'Building image locally on EC2...'
-              cd /tmp/bv-backend
-              docker build -t rushabhbackend04/bv_backend:latest -f ./Dockerfile .
-              echo '✅ Image built'
-            fi
-          "
-
-      - name: Run Alembic migrations on EC2
-        run: |
-          echo "🔄 Running database migrations on EC2..."
-          ssh -i bharma_vastu.pem -o StrictHostKeyChecking=no ubuntu@65.1.107.217 "
-            echo 'Running Alembic upgrade...'
-            docker run --rm \
-              --network host \
-              --env-file /tmp/.env.production \
-              rushabhbackend04/bv_backend:latest \
-              sh -c '
-                echo \"Running Alembic upgrade...\"
-                alembic upgrade head
-                echo \"Migrations completed!\"
-              '
-            echo '✅ Database migrations completed!'
-          "
-
-      - name: Start application on EC2
-        run: |
-          echo "🚀 Starting application on EC2..."
-          ssh -i bharma_vastu.pem -o StrictHostKeyChecking=no ubuntu@65.1.107.217 "
-            echo 'Starting application container...'
-            docker run -d \
-              --name bv-backend-container \
-              --restart unless-stopped \
-              -p 8000:8000 \
-              --env-file /tmp/.env.production \
-              -v /var/log/bv-backend:/app/logs \
-              -v /var/www/bv-backend/uploads:/app/uploads \
-              --network host \
-              rushabhbackend04/bv_backend:latest
-            
-            echo 'Waiting for application...'
-            timeout 30 bash -c 'until curl -f http://localhost:8000/health 2>/dev/null; do sleep 1; done'
-            echo '✅ Application ready!'
-          "
-
-      - name: Deployment complete
-        run: |
-          echo "🎉 Deployment completed successfully!"
-          echo "✅ API: http://65.1.107.217:8000"
-          echo "✅ Health: http://65.1.107.217:8000/health"
-          echo "✅ Database: MySQL on port 3306"
-          echo "✅ Migrations: Completed"
-          echo "✅ EC2 Instance: Bharama_Vastu (i-0b75074cc8c96de79)"
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        run: docker push rushabhbackend04/bv_backend:latest
